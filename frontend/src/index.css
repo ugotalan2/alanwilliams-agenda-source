@@ -1,0 +1,381 @@
+:root {
+    --aw-agenda: #0057b8;
+    --aw-agenda-dark: #004494;
+
+    font-family:
+        Inter,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+}
+
+html,
+body,
+#root {
+    min-height: 100%;
+}
+
+body {
+    margin: 0;
+}
+
+a {
+    color: var(--aw-agenda);
+}
+
+.aw-text-muted {
+    color: var(--aw-text-muted);
+}
+
+.aw-card {
+    background: var(--aw-surface);
+    border: 1px solid var(--aw-border);
+    border-radius: 0.75rem;
+}
+
+/* Brand */
+
+.aw-app-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    color: var(--aw-text);
+}
+
+.aw-app-brand:hover {
+    color: var(--aw-text);
+}
+
+.aw-agenda-logo {
+    width: 38px;
+    height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.6rem;
+
+    background: var(--aw-agenda);
+    color: white;
+
+    font-size: 1.35rem;
+    font-weight: 800;
+}
+
+.aw-app-brand-name {
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+/* Header */
+
+.aw-app-header,
+.aw-public-header {
+    height: var(--aw-header-height);
+    background: var(--aw-surface);
+    border-bottom: 1px solid var(--aw-border);
+}
+
+.aw-app-header {
+    position: sticky;
+    top: 0;
+    z-index: 1030;
+}
+
+.aw-app-header-inner {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1.25rem;
+}
+
+.aw-public-header .container {
+    height: 100%;
+}
+
+/* Account */
+
+.aw-account-button {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    border: 0;
+    background: transparent;
+    color: var(--aw-text);
+}
+
+.aw-account-button:hover {
+    background: rgba(0, 0, 0, 0.04);
+}
+
+.aw-account-button::after {
+    display: none;
+}
+
+.aw-account-chevron {
+    font-size: 0.7rem;
+}
+
+/* Application shell */
+
+.aw-app {
+    min-height: 100vh;
+}
+
+.aw-app-body {
+    display: flex;
+    min-height: calc(100vh - var(--aw-header-height));
+}
+
+.aw-app-content {
+    flex: 1;
+    min-width: 0;
+    padding: 2rem;
+}
+
+/* Buttons */
+
+.aw-btn-agenda {
+    background: var(--aw-agenda);
+    border-color: var(--aw-agenda);
+    color: #fff;
+}
+
+.aw-btn-agenda:hover,
+.aw-btn-agenda:focus {
+    background: var(--aw-agenda-dark);
+    border-color: var(--aw-agenda-dark);
+    color: #fff;
+}
+
+.aw-btn-agenda-outline {
+    color: var(--aw-agenda);
+    border: 1px solid var(--aw-agenda);
+    background: transparent;
+}
+
+.aw-btn-agenda-outline:hover {
+    background: var(--aw-agenda);
+    color: #fff;
+}
+
+.aw-btn-secondary {
+    border: 1px solid var(--aw-border);
+    background: var(--aw-surface);
+    color: var(--aw-text);
+}
+
+.aw-btn-secondary:hover {
+    background: var(--aw-bg);
+    border-color: #c7cdd3;
+    color: var(--aw-text);
+}
+
+/* Public landing */
+
+.aw-public-page {
+    min-height: 100vh;
+    background: var(--aw-bg);
+}
+
+.aw-hero {
+    padding: 6rem 0;
+}
+
+.aw-hero-eyebrow {
+    margin-bottom: 0.75rem;
+    color: var(--aw-agenda);
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.aw-hero-card {
+    padding: 1.5rem;
+    box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.08);
+}
+
+.aw-hero-card-title {
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.aw-demo-item {
+    display: flex;
+    gap: 0.9rem;
+    padding: 1rem 0;
+    border-top: 1px solid var(--aw-border);
+}
+
+.aw-demo-item svg {
+    width: 20px;
+    margin-top: 0.2rem;
+    color: var(--aw-agenda);
+}
+
+.aw-demo-item div {
+    display: flex;
+    flex-direction: column;
+}
+
+.aw-demo-item span {
+    margin-top: 0.15rem;
+    color: var(--aw-text-muted);
+    font-size: 0.9rem;
+}
+
+.aw-feature-icon {
+    width: 42px;
+    height: 42px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    margin-bottom: 1rem;
+
+    border-radius: 0.6rem;
+
+    background: rgba(0, 87, 184, 0.1);
+    color: var(--aw-agenda);
+}
+
+/* Responsive */
+
+@media (max-width: 767.98px) {
+    .aw-app-content {
+        padding: 1.25rem;
+        padding-bottom: 6rem;
+    }
+
+    .aw-side-nav {
+        display: none;
+    }
+
+    .aw-hero {
+        padding: 3.5rem 0;
+    }
+
+    .aw-app-brand-name {
+        display: none;
+    }
+}
+
+.aw-agenda-context-bar {
+    background: var(--aw-surface);
+    border-bottom: 1px solid var(--aw-border);
+}
+
+.aw-context-selector {
+    height: 100%;
+}
+
+.aw-context-selector-trigger {
+    width: 100%;
+    min-height: 52px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 0.75rem 1rem;
+
+    border: 0;
+    background: transparent;
+    color: var(--aw-text);
+
+    font-weight: 600;
+    text-align: left;
+}
+
+.aw-context-selector-trigger:hover,
+.aw-context-selector-trigger:focus-visible {
+    background: var(--aw-surface-hover);
+    color: var(--aw-accent-highlight);
+}
+
+.aw-context-selector-value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+    .aw-agenda-context-bar .col-md-6:first-child {
+        border-right: 1px solid var(--aw-border);
+    }
+}
+
+@media (max-width: 767.98px) {
+    .aw-context-selector {
+        border-bottom: 1px solid var(--aw-border);
+    }
+
+    .aw-agenda-context-bar .col-12:last-child .aw-context-selector {
+        border-bottom: 0;
+    }
+}
+.aw-structure-drag-item,
+.aw-structure-group {
+    transition:
+        transform 140ms ease,
+        border-color 140ms ease,
+        background-color 140ms ease;
+}
+
+.aw-structure-drag-source {
+    opacity: 0.38;
+    transform: translateX(0.75rem);
+}
+
+.aw-structure-drop-available > .aw-card {
+    box-shadow: 0 0 0 2px var(--aw-agenda);
+}
+
+.aw-structure-drag-ghost {
+    position: fixed;
+    top: -1000px;
+    left: -1000px;
+    width: min(20rem, 70vw);
+    opacity: 0.92;
+    pointer-events: none;
+    z-index: 2000;
+}
+
+.aw-action-menu > summary {
+    list-style: none;
+}
+
+.aw-action-menu > summary::-webkit-details-marker {
+    display: none;
+}
+
+.aw-action-menu .dropdown-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.25rem);
+    left: auto;
+    z-index: 1050;
+}
+
+.aw-action-menu[open] .dropdown-menu {
+    display: block;
+}
+
+.aw-structure-drag-handle {
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.aw-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1055;
+    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.5);
+}

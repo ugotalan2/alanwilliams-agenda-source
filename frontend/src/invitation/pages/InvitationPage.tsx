@@ -4,6 +4,7 @@ import { AppHeader } from "@ugotalan2/ui";
 import { useParams } from "react-router-dom";
 
 import { IdentityBootstrap } from "../../account/IdentityBootstrap";
+import { rememberPendingReturnTo } from "../../account/pendingReturnTo";
 import { switchOrganization } from "../../organization/api/organizationApi";
 import agendaLogo from "../../styles/icons/agenda-icon.png";
 import {
@@ -19,15 +20,15 @@ function InvitationPage() {
 
     const [invitation, setInvitation] =
         useState<InvitationLookupResponse | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(Boolean(token));
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         if (!token) {
-            setError("This invitation link is invalid.");
-            setLoading(false);
             return;
         }
+
+        rememberPendingReturnTo(window.location.href);
 
         async function loadInvitation() {
             try {
@@ -90,6 +91,10 @@ function SignedOutInvitation({
     const { openSignIn, openSignUp } = useClerk();
     const returnTo = window.location.href;
 
+    function preserveInvitation() {
+        rememberPendingReturnTo(returnTo);
+    }
+
     return (
         <InvitationShell signedIn={false}>
             <InvitationDetails invitation={invitation} />
@@ -105,11 +110,12 @@ function SignedOutInvitation({
                         <button
                             type="button"
                             className="btn aw-btn-app-primary"
-                            onClick={() =>
+                            onClick={() => {
+                                preserveInvitation();
                                 openSignIn({
                                     forceRedirectUrl: returnTo,
-                                })
-                            }
+                                });
+                            }}
                         >
                             Sign In
                         </button>
@@ -117,11 +123,12 @@ function SignedOutInvitation({
                         <button
                             type="button"
                             className="btn aw-btn-secondary"
-                            onClick={() =>
+                            onClick={() => {
+                                preserveInvitation();
                                 openSignUp({
                                     forceRedirectUrl: returnTo,
-                                })
-                            }
+                                });
+                            }}
                         >
                             Create Account
                         </button>
@@ -142,7 +149,7 @@ function SignedInInvitation({
     onInvitationChange: (invitation: InvitationLookupResponse) => void;
 }) {
     const { getToken } = useAuth();
-    const { signOut } = useClerk();
+    const clerk = useClerk();
     const { user } = useUser();
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -195,10 +202,10 @@ function SignedInInvitation({
         }
     }
 
-    async function handleSwitchAccount() {
-        await signOut({
-            redirectUrl: window.location.href,
-        });
+    async function handleSignOut() {
+        const returnTo = window.location.href;
+        rememberPendingReturnTo(returnTo);
+        await clerk.signOut({ redirectUrl: returnTo });
     }
 
     return (
@@ -229,9 +236,9 @@ function SignedInInvitation({
                             type="button"
                             className="btn aw-btn-secondary"
                             disabled={submitting}
-                            onClick={() => void handleSwitchAccount()}
+                            onClick={() => void handleSignOut()}
                         >
-                            Not Me / Switch Account
+                            Not Me / Sign Out
                         </button>
 
                         <button

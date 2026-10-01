@@ -1,17 +1,22 @@
 import { useState } from "react";
 import { ModalShell } from "@ugotalan2/ui";
 
-import type { PositionAssignment } from "../types";
+import type { OrganizationManagedMember } from "../types";
 
 interface Props {
-    assignment: PositionAssignment;
+    member: OrganizationManagedMember;
+    organizationName: string;
     onClose: () => void;
     onConfirm: () => Promise<void>;
 }
 
-export function EndAssignmentModal({ assignment, onClose, onConfirm }: Props) {
+export function RemoveOrganizationMemberModal({
+    member,
+    organizationName,
+    onClose,
+    onConfirm,
+}: Props) {
     const [saving, setSaving] = useState(false);
-
     const [error, setError] = useState<string | null>(null);
 
     async function handleConfirm() {
@@ -25,7 +30,7 @@ export function EndAssignmentModal({ assignment, onClose, onConfirm }: Props) {
             setError(
                 err instanceof Error
                     ? err.message
-                    : "Unable to end assignment.",
+                    : "Unable to remove this member.",
             );
         } finally {
             setSaving(false);
@@ -35,7 +40,7 @@ export function EndAssignmentModal({ assignment, onClose, onConfirm }: Props) {
     return (
         <ModalShell onClose={onClose} busy={saving}>
             <div className="modal-header">
-                <h2 className="modal-title fs-5">End Position Assignment</h2>
+                <h2 className="modal-title fs-5">Remove from Organization</h2>
 
                 <button
                     type="button"
@@ -50,13 +55,14 @@ export function EndAssignmentModal({ assignment, onClose, onConfirm }: Props) {
                 {error && <div className="alert alert-danger">{error}</div>}
 
                 <p className="mb-2">
-                    End <strong>{assignment.displayName}</strong>
-                    's assignment as <strong>{assignment.positionName}</strong>?
+                    Remove <strong>{member.displayName}</strong> from{" "}
+                    <strong>{organizationName}</strong>?
                 </p>
 
                 <p className="small aw-text-muted mb-0">
-                    Any Meeting Access inherited from this Position will end
-                    with the assignment.
+                    {member.membershipStatus === "PENDING"
+                        ? "Their outstanding invitation will be revoked. Their membership history will be preserved."
+                        : "They will lose access to this organization and be removed from their current positions. Their membership and assignment history will be preserved."}
                 </p>
             </div>
 
@@ -76,7 +82,7 @@ export function EndAssignmentModal({ assignment, onClose, onConfirm }: Props) {
                     onClick={() => void handleConfirm()}
                     disabled={saving}
                 >
-                    {saving ? "Ending..." : "End Assignment"}
+                    {saving ? "Removing..." : "Remove from Organization"}
                 </button>
             </div>
         </ModalShell>

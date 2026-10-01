@@ -3,6 +3,7 @@ export type OrganizationRole = "OWNER" | "ADMIN" | "MEMBER";
 export type MembershipStatus = "PENDING" | "ACTIVE" | "INACTIVE";
 
 export interface OrganizationMembership {
+    membershipId: number;
     organizationId: number;
     organizationName: string;
     status: MembershipStatus;

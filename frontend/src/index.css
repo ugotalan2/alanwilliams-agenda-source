@@ -161,18 +161,6 @@ a {
     color: #fff;
 }
 
-.aw-btn-secondary {
-    border: 1px solid var(--aw-border);
-    background: var(--aw-surface);
-    color: var(--aw-text);
-}
-
-.aw-btn-secondary:hover {
-    background: var(--aw-bg);
-    border-color: #c7cdd3;
-    color: var(--aw-text);
-}
-
 /* Public landing */
 
 .aw-public-page {
@@ -370,12 +358,4 @@ a {
     touch-action: none;
     user-select: none;
     -webkit-user-select: none;
-}
-
-.aw-modal-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 1055;
-    overflow-y: auto;
-    background: rgba(0, 0, 0, 0.5);
 }

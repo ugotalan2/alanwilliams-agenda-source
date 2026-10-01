@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
+import { useAuth } from "@clerk/react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getMembers } from "../../membership/api/memberApi.ts";
+import { getOrganizationMembers } from "../../membership/api/memberApi.ts";
+import { useOrganization } from "../../organization/context/OrganizationContext";
 import { getMeetingTypes } from "../api/meetingTypeApi.ts";
 import {
     getMeeting,
@@ -82,6 +84,8 @@ const nextStatus: Record<string, AgendaMeeting["status"]> = {
 function AgendaFormPage() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { getToken } = useAuth();
+    const { activeOrganization } = useOrganization();
     const isEdit = !!id;
 
     const [members, setMembers] = useState<Member[]>([]);
@@ -116,11 +120,33 @@ function AgendaFormPage() {
         };
 
     useEffect(() => {
-        Promise.all([getMembers(), getMeetingTypes()]).then(([m, t]) => {
-            setMembers(m);
-            setMeetingTypes(t);
+        if (!activeOrganization) {
+            return;
+        }
+
+        Promise.all([
+            getOrganizationMembers(getToken, activeOrganization.organizationId),
+            getMeetingTypes(getToken, activeOrganization.organizationId),
+        ]).then(([organizationMembers, meetingTypes]) => {
+            setMembers(
+                organizationMembers.map((member) => ({
+                    id: member.personId,
+                    name: member.displayName,
+                    email: null,
+                    phone: null,
+                    role: member.role,
+                    active: true,
+                })),
+            );
+            setMeetingTypes(
+                meetingTypes.map((meetingType) => ({
+                    id: meetingType.meetingTypeId,
+                    displayName: meetingType.name,
+                    templateCode: "",
+                })),
+            );
         });
-    }, []);
+    }, [activeOrganization, getToken]);
 
     useEffect(() => {
         if (!isEdit) {

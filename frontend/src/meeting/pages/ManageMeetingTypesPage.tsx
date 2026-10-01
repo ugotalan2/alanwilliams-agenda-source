@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "@clerk/react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -61,17 +61,11 @@ export function ManageMeetingTypesPage() {
 
     const [actionError, setActionError] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (searchParams.get("create") === "true") {
-            setCreating(true);
-        }
-    }, [searchParams]);
-
     const canManageMeetings =
         activeOrganization?.role === "OWNER" ||
         activeOrganization?.role === "ADMIN";
 
-    async function refreshManagedMeetingTypes() {
+    const refreshManagedMeetingTypes = useCallback(async () => {
         if (!canManageMeetings || !activeOrganization) {
             setManagedMeetingTypes([]);
             return;
@@ -92,11 +86,13 @@ export function ManageMeetingTypesPage() {
         } finally {
             setManagementLoading(false);
         }
-    }
+    }, [activeOrganization, canManageMeetings, getToken]);
 
     useEffect(() => {
+        // Load management data when the active organization/permissions change.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         void refreshManagedMeetingTypes();
-    }, [activeOrganization?.organizationId, canManageMeetings, getToken]);
+    }, [refreshManagedMeetingTypes]);
 
     const displayedMeetingTypes = canManageMeetings
         ? managedMeetingTypes

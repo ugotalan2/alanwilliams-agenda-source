@@ -9,6 +9,10 @@ import com.alanwilliams.agenda.membership.dto.UpdateProvisionalMemberRequest;
 import com.alanwilliams.agenda.organization.Organization;
 import com.alanwilliams.agenda.organization.OrganizationAuthorizationService;
 import com.alanwilliams.agenda.organization.OrganizationRepository;
+import com.alanwilliams.agenda.structure.OrganizationPositionAssignment;
+import com.alanwilliams.agenda.structure.repository.OrganizationPositionAssignmentRepository;
+
+import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -39,6 +43,9 @@ public class OrganizationMemberManagementService {
 
     private final OrganizationInvitationRepository
             invitationRepository;
+
+    private final OrganizationPositionAssignmentRepository
+            assignmentRepository;
 
     private final OrganizationAuthorizationService
             authorizationService;
@@ -97,15 +104,60 @@ public class OrganizationMemberManagementService {
                                 )
                         );
 
-        OrganizationMembership membership =
-                membershipRepository.save(
-                        OrganizationMembership.pending(
-                                organization,
-                                request.displayName(),
-                                request.email(),
-                                request.role()
+        String normalizedEmail = request.email().trim().toLowerCase();
+
+        List<OrganizationMembership> matchingMemberships =
+                membershipRepository
+                        .findByOrganizationIdAndProvisionalEmailIgnoreCaseOrderByCreatedAtDesc(
+                                organizationId,
+                                normalizedEmail
+                        );
+
+        OrganizationMembership existingMembership =
+                matchingMemberships.stream()
+                        .filter(candidate ->
+                                CURRENT_MEMBERSHIP_STATUSES.contains(
+                                        candidate.getStatus()
+                                )
                         )
-                );
+                        .findFirst()
+                        .orElseGet(() ->
+                                matchingMemberships.isEmpty()
+                                        ? null
+                                        : matchingMemberships.getFirst()
+                        );
+
+        OrganizationMembership membership;
+
+        if (existingMembership == null) {
+            membership = membershipRepository.save(
+                    OrganizationMembership.pending(
+                            organization,
+                            request.displayName(),
+                            normalizedEmail,
+                            request.role()
+                    )
+            );
+        } else if (existingMembership.getStatus() == MembershipStatus.INACTIVE) {
+            existingMembership.prepareForReinvite(
+                    request.displayName(),
+                    normalizedEmail,
+                    request.role()
+            );
+            membership = membershipRepository.save(existingMembership);
+        } else if (existingMembership.getStatus() == MembershipStatus.PENDING) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    existingMembership.getDisplayName()
+                            + " already has a pending membership for this email."
+            );
+        } else {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    existingMembership.getDisplayName()
+                            + " is already a member of this organization."
+            );
+        }
 
         return new OrganizationMemberManagementResponse(
                 membership.getId(),
@@ -114,7 +166,8 @@ public class OrganizationMemberManagementService {
                 membership.getStatus(),
                 membership.getOrganizationRole(),
                 membership.getProvisionalEmail(),
-                null
+                null,
+                membership.getEndDate()
         );
     }
 
@@ -197,7 +250,8 @@ public class OrganizationMemberManagementService {
                 membership.getStatus(),
                 membership.getOrganizationRole(),
                 membership.getProvisionalEmail(),
-                null
+                null,
+                membership.getEndDate()
         );
     }
 
@@ -214,23 +268,41 @@ public class OrganizationMemberManagementService {
 
         OrganizationMembership membership =
                 membershipRepository
-                        .findByIdAndOrganizationIdAndStatus(
+                        .findByIdAndOrganizationIdAndStatusIn(
                                 membershipId,
                                 organizationId,
-                                MembershipStatus.PENDING
+                                CURRENT_MEMBERSHIP_STATUSES
                         )
                         .orElseThrow(() ->
                                 new ResponseStatusException(
                                         HttpStatus.NOT_FOUND,
-                                        "Pending organization membership not found."
+                                        "Current organization membership not found."
                                 )
                         );
+
+        if (membership.getOrganizationRole() == OrganizationRole.OWNER) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "The organization owner cannot be removed through member management."
+            );
+        }
 
         if (membership.getOrganizationRole() == OrganizationRole.ADMIN) {
             authorizationService.requireOwner(
                     personId,
                     organizationId
             );
+        }
+
+        LocalDate today = LocalDate.now();
+
+        for (OrganizationPositionAssignment assignment :
+                assignmentRepository.findCurrentByMembershipId(
+                        membershipId,
+                        today
+                )) {
+            assignment.end(today);
+            assignmentRepository.save(assignment);
         }
 
         invitationRepository
@@ -251,11 +323,14 @@ public class OrganizationMemberManagementService {
             OrganizationMembership membership
     ) {
         OrganizationInvitation invitation =
-                invitationRepository
-                        .findFirstByOrganizationMembershipIdOrderByCreatedAtDesc(
-                                membership.getId()
+                membership.getStatus() == MembershipStatus.PENDING
+                        ? invitationRepository
+                        .findByOrganizationMembershipIdAndStatus(
+                                membership.getId(),
+                                InvitationStatus.PENDING
                         )
-                        .orElse(null);
+                        .orElse(null)
+                        : null;
 
         return new OrganizationMemberManagementResponse(
                 membership.getId(),
@@ -266,7 +341,8 @@ public class OrganizationMemberManagementService {
                 membership.getProvisionalEmail(),
                 invitation == null
                         ? null
-                        : invitation.getStatus()
+                        : invitation.getStatus(),
+                membership.getEndDate()
         );
     }
 

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPen, faTrash, faBars } from "@fortawesome/free-solid-svg-icons";
 import type { AgendaDiscussionQuestion, DiscussionQuestion } from "../../types";
@@ -40,18 +40,18 @@ function AgendaQuestionSection({ meetingId }: Props) {
     const [dragIndex, setDragIndex] = useState<number | null>(null);
     const searchRef = useRef<HTMLDivElement>(null);
 
-    const fetchAgendaQuestions = () => {
+    const fetchAgendaQuestions = useCallback(() => {
         getQuestionsByMeeting(meetingId).then(setAgendaQuestions);
-    };
+    }, [meetingId]);
 
-    const fetchBacklog = () => {
+    const fetchBacklog = useCallback(() => {
         getUnresolvedQuestions().then(setBacklog);
-    };
+    }, []);
 
     useEffect(() => {
         fetchAgendaQuestions();
         fetchBacklog();
-    }, [meetingId]);
+    }, [fetchAgendaQuestions, fetchBacklog]);
 
     // Close dropdown on outside click
     useEffect(() => {

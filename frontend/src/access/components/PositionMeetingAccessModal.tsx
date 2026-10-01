@@ -1,5 +1,5 @@
-import { FormEvent, useMemo, useState } from "react";
-import { ModalShell } from "../../components/ModalShell";
+import { useMemo, useState, type FormEvent } from "react";
+import { ModalShell } from "@ugotalan2/ui";
 
 import type { MeetingType } from "../../meeting/api/meetingTypeApi";
 import type { OrganizationUnitPosition } from "../../structure/types";
@@ -90,132 +90,127 @@ export function PositionMeetingAccessModal({
 
     return (
         <ModalShell onClose={onClose} busy={saving}>
-                    <form onSubmit={handleSubmit}>
-                        <div className="modal-header">
-                            <div>
-                                <h2 className="modal-title fs-5">
-                                    {editingAccess
-                                        ? "Edit Meeting Access"
-                                        : "Add Meeting"}
-                                </h2>
-                                <div className="small aw-text-muted">
-                                    {slot.unitName ? `${slot.unitName} · ` : ""}
-                                    {slot.positionName}
-                                </div>
-                            </div>
-                            <button
-                                type="button"
-                                className="btn-close"
-                                aria-label="Close"
-                                onClick={onClose}
-                                disabled={saving}
-                            />
+            <form onSubmit={handleSubmit}>
+                <div className="modal-header">
+                    <div>
+                        <h2 className="modal-title fs-5">
+                            {editingAccess
+                                ? "Edit Meeting Access"
+                                : "Add Meeting"}
+                        </h2>
+                        <div className="small aw-text-muted">
+                            {slot.unitName ? `${slot.unitName} · ` : ""}
+                            {slot.positionName}
                         </div>
+                    </div>
+                    <button
+                        type="button"
+                        className="btn-close"
+                        aria-label="Close"
+                        onClick={onClose}
+                        disabled={saving}
+                    />
+                </div>
 
-                        <div className="modal-body">
-                            {error && (
-                                <div className="alert alert-danger">
-                                    {error}
-                                </div>
-                            )}
+                <div className="modal-body">
+                    {error && <div className="alert alert-danger">{error}</div>}
 
-                            <label
-                                htmlFor="position-meeting"
-                                className="form-label fw-semibold"
-                            >
-                                Meeting
-                            </label>
-                            <select
-                                id="position-meeting"
-                                className="form-select mb-3"
-                                value={meetingTypeId}
-                                onChange={(event) =>
-                                    setMeetingTypeId(event.target.value)
-                                }
-                                disabled={saving || !!editingAccess}
-                                autoFocus={!editingAccess}
-                            >
-                                <option value="">Select meeting</option>
-                                {meetingTypes.map((meetingType) => (
-                                    <option
-                                        key={meetingType.meetingTypeId}
-                                        value={meetingType.meetingTypeId}
-                                        disabled={
-                                            !editingAccess &&
-                                            unavailableMeetingTypeIds.has(
-                                                meetingType.meetingTypeId,
-                                            )
-                                        }
-                                    >
-                                        {meetingType.name}
-                                    </option>
-                                ))}
-                            </select>
-
-                            <label
-                                htmlFor="position-meeting-role"
-                                className="form-label fw-semibold"
-                            >
-                                Permission
-                            </label>
-                            <select
-                                id="position-meeting-role"
-                                className="form-select mb-3"
-                                value={permissionRole}
-                                onChange={(event) =>
-                                    setPermissionRole(
-                                        event.target
-                                            .value as MeetingPermissionRole,
+                    <label
+                        htmlFor="position-meeting"
+                        className="form-label fw-semibold"
+                    >
+                        Meeting
+                    </label>
+                    <select
+                        id="position-meeting"
+                        className="form-select mb-3"
+                        value={meetingTypeId}
+                        onChange={(event) =>
+                            setMeetingTypeId(event.target.value)
+                        }
+                        disabled={saving || !!editingAccess}
+                        autoFocus={!editingAccess}
+                    >
+                        <option value="">Select meeting</option>
+                        {meetingTypes.map((meetingType) => (
+                            <option
+                                key={meetingType.meetingTypeId}
+                                value={meetingType.meetingTypeId}
+                                disabled={
+                                    !editingAccess &&
+                                    unavailableMeetingTypeIds.has(
+                                        meetingType.meetingTypeId,
                                     )
                                 }
-                                disabled={saving}
                             >
-                                <option value="MEMBER">Member</option>
-                                <option value="EDITOR">Editor</option>
-                                <option value="ADMIN">Admin</option>
-                            </select>
+                                {meetingType.name}
+                            </option>
+                        ))}
+                    </select>
 
-                            <label
-                                htmlFor="position-substitution-mode"
-                                className="form-label fw-semibold"
-                            >
-                                Substitution
-                            </label>
-                            <select
-                                id="position-substitution-mode"
-                                className="form-select"
-                                value={substitutionMode}
-                                onChange={(event) =>
-                                    setSubstitutionMode(
-                                        event.target.value as SubstitutionMode,
-                                    )
-                                }
-                                disabled={saving}
-                            >
-                                <option value="NONE">None</option>
-                                <option value="OPTIONAL">Optional</option>
-                                <option value="REQUIRED">Required</option>
-                            </select>
-                        </div>
+                    <label
+                        htmlFor="position-meeting-role"
+                        className="form-label fw-semibold"
+                    >
+                        Permission
+                    </label>
+                    <select
+                        id="position-meeting-role"
+                        className="form-select mb-3"
+                        value={permissionRole}
+                        onChange={(event) =>
+                            setPermissionRole(
+                                event.target.value as MeetingPermissionRole,
+                            )
+                        }
+                        disabled={saving}
+                    >
+                        <option value="MEMBER">Member</option>
+                        <option value="EDITOR">Editor</option>
+                        <option value="ADMIN">Admin</option>
+                    </select>
 
-                        <div className="modal-footer">
-                            <button
-                                type="button"
-                                className="btn aw-btn-secondary"
-                                onClick={onClose}
-                                disabled={saving}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                className="btn aw-btn-app-primary"
-                                disabled={saving || !meetingTypeId}
-                            >
-                                {saving ? "Saving..." : "Save"}
-                            </button>
-                        </div>
-                    </form>
+                    <label
+                        htmlFor="position-substitution-mode"
+                        className="form-label fw-semibold"
+                    >
+                        Substitution
+                    </label>
+                    <select
+                        id="position-substitution-mode"
+                        className="form-select"
+                        value={substitutionMode}
+                        onChange={(event) =>
+                            setSubstitutionMode(
+                                event.target.value as SubstitutionMode,
+                            )
+                        }
+                        disabled={saving}
+                    >
+                        <option value="NONE">None</option>
+                        <option value="OPTIONAL">Optional</option>
+                        <option value="REQUIRED">Required</option>
+                    </select>
+                </div>
+
+                <div className="modal-footer">
+                    <button
+                        type="button"
+                        className="btn aw-btn-secondary"
+                        onClick={onClose}
+                        disabled={saving}
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        className="btn aw-btn-app-primary"
+                        disabled={saving || !meetingTypeId}
+                    >
+                        {saving ? "Saving..." : "Save"}
+                    </button>
+                </div>
+            </form>
         </ModalShell>
     );
 }

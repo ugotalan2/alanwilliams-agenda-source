@@ -165,12 +165,22 @@ public class MeetingAccessConfigurationService {
 
                 if (current.source()
                         != MeetingAccessSource.NONE) {
+                    String existingPath =
+                            current.source() == MeetingAccessSource.POSITION
+                                    ? formatPositionPath(current)
+                                    : "direct Meeting Access";
+
                     throw new ResponseStatusException(
                             HttpStatus.CONFLICT,
-                            "Adding this Position would create conflicting Meeting Access for "
+                            meetingType.getName()
+                                    + " cannot be added to "
+                                    + formatPositionPath(unitPosition)
+                                    + " because "
                                     + occupant
                                     .getOrganizationMembership()
                                     .getDisplayName()
+                                    + " already attends this Meeting through "
+                                    + existingPath
                                     + "."
                     );
                 }
@@ -459,6 +469,25 @@ public class MeetingAccessConfigurationService {
                     "permissionRole is required."
             );
         }
+    }
+
+    private String formatPositionPath(EffectiveMeetingAccess access) {
+        if (access.unitName() == null || access.unitName().isBlank()) {
+            return access.positionName();
+        }
+
+        return access.unitName() + " · " + access.positionName();
+    }
+
+    private String formatPositionPath(OrganizationUnitPosition unitPosition) {
+        OrganizationUnit unit = unitPosition.getOrganizationUnit();
+        String positionName = unitPosition.getOrganizationPosition().getName();
+
+        if (unit == null || unit.getName() == null || unit.getName().isBlank()) {
+            return positionName;
+        }
+
+        return unit.getName() + " · " + positionName;
     }
 
     private MeetingAccessResponse toPositionResponse(

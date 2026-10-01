@@ -123,3 +123,17 @@ export function revokeMemberInvitation(
         },
     );
 }
+
+export function removeOrganizationMember(
+    getToken: GetToken,
+    organizationId: number,
+    membershipId: number,
+) {
+    return apiFetch<void>(
+        getToken,
+        `/organizations/${organizationId}/member-management/${membershipId}`,
+        {
+            method: "DELETE",
+        },
+    );
+}

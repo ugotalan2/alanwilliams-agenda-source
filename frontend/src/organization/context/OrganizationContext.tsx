@@ -65,32 +65,37 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const refresh = useCallback(async (silent = false) => {
-        if (!isLoaded || !isSignedIn) {
-            return;
-        }
+    const refresh = useCallback(
+        async (silent = false) => {
+            if (!isLoaded || !isSignedIn) {
+                return;
+            }
 
-        if (!silent) setLoading(true);
-        setError(null);
+            if (!silent) setLoading(true);
+            setError(null);
 
-        try {
-            const [organizationList, active] = await Promise.all([
-                getOrganizations(getToken),
-                getActiveOrganization(getToken),
-            ]);
+            try {
+                const [organizationList, active] = await Promise.all([
+                    getOrganizations(getToken),
+                    getActiveOrganization(getToken),
+                ]);
 
-            setOrganizations(organizationList);
-            setActiveOrganization(active);
-        } catch (err) {
-            console.error(err);
+                setOrganizations(organizationList);
+                setActiveOrganization(active);
+            } catch (err) {
+                console.error(err);
 
-            setError("Unable to load Agenda organization information.");
-        } finally {
-            if (!silent) setLoading(false);
-        }
-    }, [getToken, isLoaded, isSignedIn]);
+                setError("Unable to load Agenda organization information.");
+            } finally {
+                if (!silent) setLoading(false);
+            }
+        },
+        [getToken, isLoaded, isSignedIn],
+    );
 
     useEffect(() => {
+        // Initial/context-change data load intentionally updates provider state.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         void refresh();
     }, [refresh]);
 
@@ -196,6 +201,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useOrganization() {
     const context = useContext(OrganizationContext);
 

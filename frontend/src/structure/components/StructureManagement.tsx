@@ -1,11 +1,9 @@
 import {
     createContext,
-    FormEvent,
-    type MouseEvent as ReactMouseEvent,
-    useEffect,
     useContext,
     useMemo,
     useState,
+    type FormEvent,
     type ReactNode,
 } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -13,7 +11,6 @@ import {
     faArrowRight,
     faChevronDown,
     faChevronRight,
-    faEllipsisVertical,
     faGripVertical,
     faPen,
     faPlus,
@@ -37,7 +34,8 @@ import {
     verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ModalShell } from "../../components/ModalShell";
+import { ModalShell } from "@ugotalan2/ui";
+import { ActionMenu } from "./ActionMenu";
 import type { OrganizationManagedMember } from "../../membership/types";
 import type { MeetingType } from "../../meeting/api/meetingTypeApi";
 import type { MeetingAccessWithMeetingType } from "../../access/types";
@@ -85,6 +83,8 @@ interface Props {
     ) => void;
     onSendInvitation: (membershipId: number) => void;
     onRevokeInvitation: (membershipId: number) => void;
+    canRemoveOrganizationMember: (member: OrganizationManagedMember) => boolean;
+    onRemoveOrganizationMember: (member: OrganizationManagedMember) => void;
 }
 
 type EditorModal = {
@@ -103,7 +103,9 @@ interface SortableItemProps {
     children: (handleProps: {
         attributes: ReturnType<typeof useSortable>["attributes"];
         listeners: ReturnType<typeof useSortable>["listeners"];
-        setActivatorNodeRef: ReturnType<typeof useSortable>["setActivatorNodeRef"];
+        setActivatorNodeRef: ReturnType<
+            typeof useSortable
+        >["setActivatorNodeRef"];
         isDragging: boolean;
     }) => ReactNode;
 }
@@ -123,15 +125,17 @@ function UnitDragHandle({ name }: { name: string }) {
         return null;
     }
 
+    const { attributes, listeners, setActivatorNodeRef } = drag;
+
     return (
         <button
-            ref={drag.setActivatorNodeRef}
+            ref={setActivatorNodeRef}
             type="button"
-            className="btn btn-sm aw-btn-secondary aw-structure-drag-handle"
+            className="btn btn-sm aw-btn-menu aw-structure-drag-handle"
             title="Drag to reorder"
             aria-label={`Drag ${name} to reorder`}
-            {...drag.attributes}
-            {...drag.listeners}
+            {...attributes}
+            {...listeners}
         >
             <FontAwesomeIcon icon={faGripVertical} />
         </button>
@@ -183,47 +187,26 @@ export function StructureManagement(props: Props) {
         () => new Set(),
     );
 
-    useEffect(
-        () => setUnitOrder(props.units.map((unit) => unit.unitId)),
-        [props.units],
-    );
-    useEffect(() => {
-        function closeMenus(event: MouseEvent) {
-            const target = event.target as HTMLElement;
-            document
-                .querySelectorAll<HTMLDetailsElement>(
-                    "details.aw-action-menu[open]",
-                )
-                .forEach((menu) => {
-                    if (!menu.contains(target)) menu.removeAttribute("open");
-                });
-        }
-        document.addEventListener("pointerdown", closeMenus, true);
-        return () => document.removeEventListener("pointerdown", closeMenus, true);
-    }, []);
-    useEffect(() => {
-        const next: Record<string, number[]> = {};
-        for (const unit of [...props.units.map((unit) => unit.unitId), null]) {
-            next[String(unit)] = props.unitPositions
-                .filter((slot) => slot.unitId === unit)
-                .map((slot) => slot.unitPositionId);
-        }
-        setSlotOrders(next);
-    }, [props.units, props.unitPositions]);
+    const effectiveUnitOrder = useMemo(() => {
+        const currentIds = new Set(props.units.map((unit) => unit.unitId));
+        const ordered = unitOrder.filter((id) => currentIds.has(id));
+        const orderedIds = new Set(ordered);
+
+        return [
+            ...ordered,
+            ...props.units
+                .map((unit) => unit.unitId)
+                .filter((id) => !orderedIds.has(id)),
+        ];
+    }, [props.units, unitOrder]);
 
     const orderedUnits = useMemo(
         () =>
-            unitOrder
+            effectiveUnitOrder
                 .map((id) => props.units.find((unit) => unit.unitId === id))
                 .filter((unit): unit is OrganizationUnit => !!unit),
-        [props.units, unitOrder],
+        [effectiveUnitOrder, props.units],
     );
-    const closeActionMenu = (_event: ReactMouseEvent<HTMLButtonElement>) => {
-        document
-            .querySelectorAll<HTMLDetailsElement>("details.aw-action-menu[open]")
-            .forEach((menu) => menu.removeAttribute("open"));
-    };
-
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
@@ -245,14 +228,14 @@ export function StructureManagement(props: Props) {
             return;
         }
 
-        const oldIndex = unitOrder.indexOf(Number(active.id));
-        const newIndex = unitOrder.indexOf(Number(over.id));
+        const oldIndex = effectiveUnitOrder.indexOf(Number(active.id));
+        const newIndex = effectiveUnitOrder.indexOf(Number(over.id));
 
         if (oldIndex < 0 || newIndex < 0) {
             return;
         }
 
-        const next = arrayMove(unitOrder, oldIndex, newIndex);
+        const next = arrayMove(effectiveUnitOrder, oldIndex, newIndex);
         setUnitOrder(next);
         await props.onReorderUnits(next);
     }
@@ -268,7 +251,18 @@ export function StructureManagement(props: Props) {
         }
 
         const key = String(unitId);
-        const ids = slotOrders[key] ?? [];
+        const currentIds = props.unitPositions
+            .filter((slot) => slot.unitId === unitId)
+            .map((slot) => slot.unitPositionId);
+        const currentIdSet = new Set(currentIds);
+        const savedIds = (slotOrders[key] ?? []).filter((id) =>
+            currentIdSet.has(id),
+        );
+        const savedIdSet = new Set(savedIds);
+        const ids = [
+            ...savedIds,
+            ...currentIds.filter((id) => !savedIdSet.has(id)),
+        ];
         const oldIndex = ids.indexOf(Number(active.id));
         const newIndex = ids.indexOf(Number(over.id));
 
@@ -301,7 +295,7 @@ export function StructureManagement(props: Props) {
                             <button
                                 ref={setActivatorNodeRef}
                                 type="button"
-                                className="btn btn-sm aw-btn-secondary aw-structure-drag-handle"
+                                className="btn btn-sm aw-btn-menu aw-structure-drag-handle"
                                 title="Drag to reorder within this section"
                                 aria-label={`Drag ${slot.positionName} to reorder`}
                                 {...attributes}
@@ -309,330 +303,354 @@ export function StructureManagement(props: Props) {
                             >
                                 <FontAwesomeIcon icon={faGripVertical} />
                             </button>
-                    <div className="flex-grow-1">
-                        <div className="d-flex align-items-center justify-content-between gap-2">
-                            <div className="fw-semibold">
-                                {slot.positionName}
-                            </div>
-                            <details className="dropdown aw-action-menu">
-                                <summary
-                                    className="btn btn-sm aw-btn-secondary"
-                                    title="Position actions"
-                                >
-                                    <FontAwesomeIcon
-                                        icon={faEllipsisVertical}
-                                    />
-                                </summary>
-                                <ul className="dropdown-menu dropdown-menu-end">
-                                    <li>
-                                        <button
-                                            type="button"
-                                            className="dropdown-item"
-                                            onClick={(event) => {
-                                                closeActionMenu(event);
-                                                setModal({
-                                                    kind: "position",
-                                                    slot,
-                                                });
-                                            }}
-                                        >
-                                            <FontAwesomeIcon
-                                                icon={faPen}
-                                                className="me-2"
-                                            />
-                                            Edit
-                                        </button>
-                                    </li>
-                                    {slot.unitId == null && (
-                                        <li>
-                                            <button
-                                                type="button"
-                                                className="dropdown-item"
-                                                disabled={
-                                                    props.units.length === 0
-                                                }
-                                                onClick={(event) => {
-                                                    closeActionMenu(event);
-                                                    setMoveUnitModal({ slot });
-                                                }}
-                                            >
-                                                <FontAwesomeIcon
-                                                    icon={faArrowRight}
-                                                    className="me-2"
-                                                />
-                                                Move to Unit
-                                            </button>
-                                        </li>
-                                    )}
-                                    <li>
-                                        <hr className="dropdown-divider" />
-                                    </li>
-                                    <li>
-                                        <button
-                                            type="button"
-                                            className="dropdown-item"
-                                            onClick={(event) => {
-                                                closeActionMenu(event);
-                                                setDeleteModal({
-                                                    kind: "position",
-                                                    slot,
-                                                });
-                                            }}
-                                        >
-                                            <FontAwesomeIcon
-                                                icon={faTrash}
-                                                className="me-2"
-                                            />
-                                            Delete
-                                        </button>
-                                    </li>
-                                </ul>
-                            </details>
-                        </div>
-                        <div className="row g-3 mt-1">
-                            <div className="col-12 col-lg-6">
-                                <div className="small fw-semibold">People</div>
-                                {occupants.length === 0 ? (
-                                    <div className="small aw-text-muted mt-2">
-                                        Vacant
+                            <div className="flex-grow-1">
+                                <div className="d-flex align-items-center justify-content-between gap-2">
+                                    <div className="fw-semibold">
+                                        {slot.positionName}
                                     </div>
-                                ) : (
-                                    occupants.map((occupant) => {
-                                        const member = props.members.find(
-                                            (candidate) =>
-                                                candidate.membershipId ===
-                                                occupant.membershipId,
-                                        );
-                                        const invitationStatus =
-                                            member?.invitationStatus;
-                                        const statusLabel =
-                                            member?.membershipStatus === "ACTIVE"
-                                                ? "Joined"
-                                                : invitationStatus
-                                                  ? invitationStatus
-                                                        .toLowerCase()
-                                                        .replace(/^./, (value) =>
-                                                            value.toUpperCase(),
-                                                        )
-                                                  : "No invite";
-
-                                        return (
-                                            <div
-                                                key={occupant.assignmentId}
-                                                className="d-flex align-items-center justify-content-between gap-2 mt-2"
-                                            >
-                                                <div>
-                                                    <div>{occupant.displayName}</div>
-                                                    <div className="small aw-text-muted">
-                                                        {statusLabel}
-                                                    </div>
-                                                </div>
-                                                <details className="dropdown aw-action-menu">
-                                                    <summary
-                                                        className="btn btn-sm aw-btn-secondary"
-                                                        title="Person actions"
+                                    <ActionMenu
+                                        triggerClassName="btn btn-sm aw-btn-menu"
+                                        title="Position actions"
+                                    >
+                                        <ul className="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <button
+                                                    type="button"
+                                                    className="dropdown-item"
+                                                    onClick={() => {
+                                                        setModal({
+                                                            kind: "position",
+                                                            slot,
+                                                        });
+                                                    }}
+                                                >
+                                                    <FontAwesomeIcon
+                                                        icon={faPen}
+                                                        className="me-2"
+                                                    />
+                                                    Edit
+                                                </button>
+                                            </li>
+                                            {slot.unitId == null && (
+                                                <li>
+                                                    <button
+                                                        type="button"
+                                                        className="dropdown-item"
+                                                        disabled={
+                                                            props.units
+                                                                .length === 0
+                                                        }
+                                                        onClick={() => {
+                                                            setMoveUnitModal({
+                                                                slot,
+                                                            });
+                                                        }}
                                                     >
                                                         <FontAwesomeIcon
-                                                            icon={faEllipsisVertical}
+                                                            icon={faArrowRight}
+                                                            className="me-2"
                                                         />
-                                                    </summary>
-                                                    <ul className="dropdown-menu dropdown-menu-end">
-                                                        {member &&
-                                                            member.membershipStatus !==
-                                                                "ACTIVE" && (
+                                                        Move to Unit
+                                                    </button>
+                                                </li>
+                                            )}
+                                            <li>
+                                                <hr className="dropdown-divider" />
+                                            </li>
+                                            <li>
+                                                <button
+                                                    type="button"
+                                                    className="dropdown-item"
+                                                    onClick={() => {
+                                                        setDeleteModal({
+                                                            kind: "position",
+                                                            slot,
+                                                        });
+                                                    }}
+                                                >
+                                                    <FontAwesomeIcon
+                                                        icon={faTrash}
+                                                        className="me-2"
+                                                    />
+                                                    Delete
+                                                </button>
+                                            </li>
+                                        </ul>
+                                    </ActionMenu>
+                                </div>
+                                <div className="row g-3 mt-1">
+                                    <div className="col-12 col-lg-6">
+                                        <div className="small fw-semibold">
+                                            People
+                                        </div>
+                                        {occupants.length === 0 ? (
+                                            <div className="small aw-text-muted mt-2">
+                                                Vacant
+                                            </div>
+                                        ) : (
+                                            occupants.map((occupant) => {
+                                                const member =
+                                                    props.members.find(
+                                                        (candidate) =>
+                                                            candidate.membershipId ===
+                                                            occupant.membershipId,
+                                                    );
+                                                const invitationStatus =
+                                                    member?.invitationStatus;
+                                                const statusLabel =
+                                                    member?.membershipStatus ===
+                                                    "ACTIVE"
+                                                        ? "Joined"
+                                                        : invitationStatus
+                                                          ? invitationStatus
+                                                                .toLowerCase()
+                                                                .replace(
+                                                                    /^./,
+                                                                    (value) =>
+                                                                        value.toUpperCase(),
+                                                                )
+                                                          : "No invite";
+
+                                                return (
+                                                    <div
+                                                        key={
+                                                            occupant.assignmentId
+                                                        }
+                                                        className="d-flex align-items-center justify-content-between gap-2 mt-2"
+                                                    >
+                                                        <div>
+                                                            <div>
+                                                                {
+                                                                    occupant.displayName
+                                                                }
+                                                            </div>
+                                                            <div className="small aw-text-muted">
+                                                                {statusLabel}
+                                                            </div>
+                                                        </div>
+                                                        <ActionMenu title="Person actions">
+                                                            <ul className="dropdown-menu dropdown-menu-end">
+                                                                {member &&
+                                                                    member.membershipStatus !==
+                                                                        "ACTIVE" && (
+                                                                        <li>
+                                                                            <button
+                                                                                type="button"
+                                                                                className="dropdown-item"
+                                                                                onClick={() => {
+                                                                                    props.onSendInvitation(
+                                                                                        member.membershipId,
+                                                                                    );
+                                                                                }}
+                                                                            >
+                                                                                <FontAwesomeIcon
+                                                                                    icon={
+                                                                                        faArrowRight
+                                                                                    }
+                                                                                    className="me-2"
+                                                                                />
+                                                                                {member.invitationStatus ===
+                                                                                "PENDING"
+                                                                                    ? "Resend Invite"
+                                                                                    : "Send Invite"}
+                                                                            </button>
+                                                                        </li>
+                                                                    )}
+                                                                {member?.invitationStatus ===
+                                                                    "PENDING" && (
+                                                                    <li>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="dropdown-item"
+                                                                            onClick={() => {
+                                                                                props.onRevokeInvitation(
+                                                                                    member.membershipId,
+                                                                                );
+                                                                            }}
+                                                                        >
+                                                                            <FontAwesomeIcon
+                                                                                icon={
+                                                                                    faTrash
+                                                                                }
+                                                                                className="me-2"
+                                                                            />
+                                                                            Revoke
+                                                                            Invite
+                                                                        </button>
+                                                                    </li>
+                                                                )}
                                                                 <li>
                                                                     <button
                                                                         type="button"
                                                                         className="dropdown-item"
-                                                                        onClick={(event) => {
-                                                                            closeActionMenu(
-                                                                                event,
-                                                                            );
-                                                                            props.onSendInvitation(
-                                                                                member.membershipId,
+                                                                        onClick={() => {
+                                                                            props.onEndAssignment(
+                                                                                occupant,
                                                                             );
                                                                         }}
                                                                     >
                                                                         <FontAwesomeIcon
                                                                             icon={
-                                                                                faArrowRight
+                                                                                faUserMinus
                                                                             }
                                                                             className="me-2"
                                                                         />
-                                                                        {member.invitationStatus ===
-                                                                        "PENDING"
-                                                                            ? "Resend Invite"
-                                                                            : "Send Invite"}
+                                                                        Remove
+                                                                        from
+                                                                        Position
                                                                     </button>
                                                                 </li>
-                                                            )}
-                                                        {member?.invitationStatus ===
-                                                            "PENDING" && (
-                                                            <li>
-                                                                <button
-                                                                    type="button"
-                                                                    className="dropdown-item"
-                                                                    onClick={(event) => {
-                                                                        closeActionMenu(
-                                                                            event,
-                                                                        );
-                                                                        props.onRevokeInvitation(
-                                                                            member.membershipId,
-                                                                        );
-                                                                    }}
-                                                                >
-                                                                    <FontAwesomeIcon
-                                                                        icon={faTrash}
-                                                                        className="me-2"
-                                                                    />
-                                                                    Revoke Invite
-                                                                </button>
-                                                            </li>
-                                                        )}
-                                                        <li>
-                                                            <button
-                                                                type="button"
-                                                                className="dropdown-item"
-                                                                onClick={(event) => {
-                                                                    closeActionMenu(
-                                                                        event,
-                                                                    );
-                                                                    props.onEndAssignment(
-                                                                        occupant,
-                                                                    );
-                                                                }}
-                                                            >
-                                                                <FontAwesomeIcon
-                                                                    icon={faUserMinus}
-                                                                    className="me-2"
-                                                                />
-                                                                Remove from Position
-                                                            </button>
-                                                        </li>
-                                                    </ul>
-                                                </details>
-                                            </div>
-                                        );
-                                    })
-                                )}
-                                <button
-                                    type="button"
-                                    className="btn btn-sm aw-btn-app-primary mt-2"
-                                    onClick={() => props.onAssign(slot)}
-                                >
-                                    <FontAwesomeIcon
-                                        icon={faPlus}
-                                        className="me-1"
-                                    />
-                                    Person
-                                </button>
-                            </div>
+                                                                {member &&
+                                                                    props.canRemoveOrganizationMember(
+                                                                        member,
+                                                                    ) && (
+                                                                        <>
+                                                                            <li>
+                                                                                <hr className="dropdown-divider" />
+                                                                            </li>
+                                                                            <li>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    className="dropdown-item text-danger"
+                                                                                    onClick={() =>
+                                                                                        props.onRemoveOrganizationMember(
+                                                                                            member,
+                                                                                        )
+                                                                                    }
+                                                                                >
+                                                                                    <FontAwesomeIcon
+                                                                                        icon={
+                                                                                            faTrash
+                                                                                        }
+                                                                                        className="me-2"
+                                                                                    />
+                                                                                    Remove
+                                                                                    from
+                                                                                    Organization
+                                                                                </button>
+                                                                            </li>
+                                                                        </>
+                                                                    )}
+                                                            </ul>
+                                                        </ActionMenu>
+                                                    </div>
+                                                );
+                                            })
+                                        )}
+                                        <button
+                                            type="button"
+                                            className="btn btn-sm aw-btn-app-primary mt-2"
+                                            onClick={() => props.onAssign(slot)}
+                                        >
+                                            <FontAwesomeIcon
+                                                icon={faPlus}
+                                                className="me-1"
+                                            />
+                                            Person
+                                        </button>
+                                    </div>
 
-                            <div className="col-12 col-lg-6 border-lg-start">
-                                <div className="small fw-semibold">Meetings</div>
-                                {props.meetingAccess
-                                    .filter(
-                                        (access) =>
-                                            access.unitPositionId ===
-                                            slot.unitPositionId,
-                                    )
-                                    .map((access) => {
-                                        const meetingType =
-                                            props.meetingTypes.find(
-                                                (meeting) =>
-                                                    meeting.meetingTypeId ===
-                                                    access.meetingTypeId,
-                                            );
+                                    <div className="col-12 col-lg-6 border-lg-start">
+                                        <div className="small fw-semibold">
+                                            Meetings
+                                        </div>
+                                        {props.meetingAccess
+                                            .filter(
+                                                (access) =>
+                                                    access.unitPositionId ===
+                                                    slot.unitPositionId,
+                                            )
+                                            .map((access) => {
+                                                const meetingType =
+                                                    props.meetingTypes.find(
+                                                        (meeting) =>
+                                                            meeting.meetingTypeId ===
+                                                            access.meetingTypeId,
+                                                    );
 
-                                        return (
-                                            <div
-                                                key={access.accessId}
-                                                className="d-flex align-items-center justify-content-between gap-2 mt-2"
-                                            >
-                                                <div>
-                                                    <span>
-                                                        {meetingType?.name ??
-                                                            "Meeting"}
-                                                    </span>
-                                                    <span className="small aw-text-muted ms-2">
-                                                        {access.permissionRole}
-                                                        {access.substitutionMode !==
-                                                            "NONE" &&
-                                                            ` · ${access.substitutionMode.toLowerCase()} substitutes`}
-                                                    </span>
-                                                </div>
-                                                <details className="dropdown aw-action-menu">
-                                                    <summary
-                                                        className="btn btn-sm aw-btn-secondary"
-                                                        title="Meeting actions"
+                                                return (
+                                                    <div
+                                                        key={access.accessId}
+                                                        className="d-flex align-items-center justify-content-between gap-2 mt-2"
                                                     >
-                                                        <FontAwesomeIcon
-                                                            icon={faEllipsisVertical}
-                                                        />
-                                                    </summary>
-                                                    <ul className="dropdown-menu dropdown-menu-end">
-                                                        <li>
-                                                            <button
-                                                                type="button"
-                                                                className="dropdown-item"
-                                                                onClick={(event) => {
-                                                                    closeActionMenu(
-                                                                        event,
-                                                                    );
-                                                                    props.onEditMeeting(
-                                                                        slot,
-                                                                        access,
-                                                                    );
-                                                                }}
-                                                            >
-                                                                <FontAwesomeIcon
-                                                                    icon={faPen}
-                                                                    className="me-2"
-                                                                />
-                                                                Edit
-                                                            </button>
-                                                        </li>
-                                                        <li>
-                                                            <button
-                                                                type="button"
-                                                                className="dropdown-item"
-                                                                onClick={(event) => {
-                                                                    closeActionMenu(
-                                                                        event,
-                                                                    );
-                                                                    props.onRemoveMeeting(
-                                                                        slot,
-                                                                        access,
-                                                                    );
-                                                                }}
-                                                            >
-                                                                <FontAwesomeIcon
-                                                                    icon={faTrash}
-                                                                    className="me-2"
-                                                                />
-                                                                Remove
-                                                            </button>
-                                                        </li>
-                                                    </ul>
-                                                </details>
-                                            </div>
-                                        );
-                                    })}
-                                <button
-                                    type="button"
-                                    className="btn btn-sm aw-btn-app-primary mt-2"
-                                    onClick={() => props.onAddMeeting(slot)}
-                                >
-                                    <FontAwesomeIcon
-                                        icon={faPlus}
-                                        className="me-1"
-                                    />
-                                    Meeting
-                                </button>
+                                                        <div>
+                                                            <span>
+                                                                {meetingType?.name ??
+                                                                    "Meeting"}
+                                                            </span>
+                                                            <span className="small aw-text-muted ms-2">
+                                                                {
+                                                                    access.permissionRole
+                                                                }
+                                                                {access.substitutionMode !==
+                                                                    "NONE" &&
+                                                                    ` · ${access.substitutionMode.toLowerCase()} substitutes`}
+                                                            </span>
+                                                        </div>
+                                                        <ActionMenu title="Meeting actions">
+                                                            <ul className="dropdown-menu dropdown-menu-end">
+                                                                <li>
+                                                                    <button
+                                                                        type="button"
+                                                                        className="dropdown-item"
+                                                                        onClick={() => {
+                                                                            props.onEditMeeting(
+                                                                                slot,
+                                                                                access,
+                                                                            );
+                                                                        }}
+                                                                    >
+                                                                        <FontAwesomeIcon
+                                                                            icon={
+                                                                                faPen
+                                                                            }
+                                                                            className="me-2"
+                                                                        />
+                                                                        Edit
+                                                                    </button>
+                                                                </li>
+                                                                <li>
+                                                                    <button
+                                                                        type="button"
+                                                                        className="dropdown-item"
+                                                                        onClick={() => {
+                                                                            props.onRemoveMeeting(
+                                                                                slot,
+                                                                                access,
+                                                                            );
+                                                                        }}
+                                                                    >
+                                                                        <FontAwesomeIcon
+                                                                            icon={
+                                                                                faTrash
+                                                                            }
+                                                                            className="me-2"
+                                                                        />
+                                                                        Remove
+                                                                    </button>
+                                                                </li>
+                                                            </ul>
+                                                        </ActionMenu>
+                                                    </div>
+                                                );
+                                            })}
+                                        <button
+                                            type="button"
+                                            className="btn btn-sm aw-btn-app-primary mt-2"
+                                            onClick={() =>
+                                                props.onAddMeeting(slot)
+                                            }
+                                        >
+                                            <FontAwesomeIcon
+                                                icon={faPlus}
+                                                className="me-1"
+                                            />
+                                            Meeting
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </div>
                     </div>
                 )}
             </SortableItem>
@@ -642,7 +660,18 @@ export function StructureManagement(props: Props) {
     function renderGroup(unit: OrganizationUnit | null) {
         const unitId = unit?.unitId ?? null;
         const key = String(unitId);
-        const ids = slotOrders[key] ?? [];
+        const currentIds = props.unitPositions
+            .filter((slot) => slot.unitId === unitId)
+            .map((slot) => slot.unitPositionId);
+        const currentIdSet = new Set(currentIds);
+        const savedIds = (slotOrders[key] ?? []).filter((id) =>
+            currentIdSet.has(id),
+        );
+        const savedIdSet = new Set(savedIds);
+        const ids = [
+            ...savedIds,
+            ...currentIds.filter((id) => !savedIdSet.has(id)),
+        ];
         const slots = ids
             .map((id) =>
                 props.unitPositions.find((slot) => slot.unitPositionId === id),
@@ -652,9 +681,7 @@ export function StructureManagement(props: Props) {
         const content = (
             <section className="mb-4 aw-structure-group">
                 <div className="d-flex align-items-center gap-2 mb-2 px-3">
-                    {unit && (
-                        <UnitDragHandle name={unit.name} />
-                    )}
+                    {unit && <UnitDragHandle name={unit.name} />}
                     <FontAwesomeIcon icon={faUsers} className="aw-text-muted" />
                     <h2 className="h5 fw-bold mb-0 flex-grow-1">
                         {unit?.name ?? "Other Positions"}
@@ -662,44 +689,48 @@ export function StructureManagement(props: Props) {
                     {unit && (
                         <>
                             <span className="small aw-text-muted d-none d-sm-inline">
-                                {slots.length} {slots.length === 1 ? "position" : "positions"}
+                                {slots.length}{" "}
+                                {slots.length === 1 ? "position" : "positions"}
                             </span>
                             <button
                                 type="button"
-                                className="btn btn-sm aw-btn-secondary"
-                                title={collapsed ? "Expand unit" : "Collapse unit"}
+                                className="btn btn-sm aw-btn-menu"
+                                title={
+                                    collapsed ? "Expand unit" : "Collapse unit"
+                                }
                                 aria-label={`${collapsed ? "Expand" : "Collapse"} ${unit.name}`}
                                 aria-expanded={!collapsed}
                                 onClick={() =>
                                     setCollapsedUnitIds((current) => {
                                         const next = new Set(current);
-                                        if (next.has(unit.unitId)) next.delete(unit.unitId);
+                                        if (next.has(unit.unitId))
+                                            next.delete(unit.unitId);
                                         else next.add(unit.unitId);
                                         return next;
                                     })
                                 }
                             >
                                 <FontAwesomeIcon
-                                    icon={collapsed ? faChevronRight : faChevronDown}
+                                    icon={
+                                        collapsed
+                                            ? faChevronRight
+                                            : faChevronDown
+                                    }
                                 />
                             </button>
                         </>
                     )}
                     {unit && (
-                        <details className="dropdown aw-action-menu">
-                            <summary
-                                className="btn btn-sm aw-btn-secondary"
-                                title="Unit actions"
-                            >
-                                <FontAwesomeIcon icon={faEllipsisVertical} />
-                            </summary>
+                        <ActionMenu
+                            triggerClassName="btn btn-sm aw-btn-menu"
+                            title="Unit actions"
+                        >
                             <ul className="dropdown-menu dropdown-menu-end">
                                 <li>
                                     <button
                                         type="button"
                                         className="dropdown-item"
-                                        onClick={(event) => {
-                                            closeActionMenu(event);
+                                        onClick={() => {
                                             setModal({ kind: "unit", unit });
                                         }}
                                     >
@@ -717,8 +748,7 @@ export function StructureManagement(props: Props) {
                                     <button
                                         type="button"
                                         className="dropdown-item"
-                                        onClick={(event) => {
-                                            closeActionMenu(event);
+                                        onClick={() => {
                                             setDeleteModal({
                                                 kind: "unit",
                                                 unit,
@@ -733,46 +763,49 @@ export function StructureManagement(props: Props) {
                                     </button>
                                 </li>
                             </ul>
-                        </details>
+                        </ActionMenu>
                     )}
                 </div>
                 {!collapsed && (
-                <div className="aw-card">
-                    {slots.length === 0 && (
-                        <div className="p-4 aw-text-muted">
-                            No positions have been added here.
-                        </div>
-                    )}
-                    <DndContext
-                        sensors={sensors}
-                        collisionDetection={closestCenter}
-                        onDragEnd={(event) =>
-                            void handlePositionDragEnd(unitId, event)
-                        }
-                    >
-                        <SortableContext
-                            items={slots.map((slot) =>
-                                String(slot.unitPositionId),
-                            )}
-                            strategy={verticalListSortingStrategy}
-                        >
-                            {slots.map(renderPosition)}
-                        </SortableContext>
-                    </DndContext>
-                    <div className="p-2 text-end">
-                        <button
-                            type="button"
-                            className="btn btn-sm aw-btn-app-primary"
-                            title="Add position"
-                            onClick={() =>
-                                setModal({ kind: "position", unitId })
+                    <div className="aw-card">
+                        {slots.length === 0 && (
+                            <div className="p-4 aw-text-muted">
+                                No positions have been added here.
+                            </div>
+                        )}
+                        <DndContext
+                            sensors={sensors}
+                            collisionDetection={closestCenter}
+                            onDragEnd={(event) =>
+                                void handlePositionDragEnd(unitId, event)
                             }
                         >
-                            <FontAwesomeIcon icon={faPlus} className="me-1" />
-                            Position
-                        </button>
+                            <SortableContext
+                                items={slots.map((slot) =>
+                                    String(slot.unitPositionId),
+                                )}
+                                strategy={verticalListSortingStrategy}
+                            >
+                                {slots.map(renderPosition)}
+                            </SortableContext>
+                        </DndContext>
+                        <div className="p-2 text-end">
+                            <button
+                                type="button"
+                                className="btn btn-sm aw-btn-app-primary"
+                                title="Add position"
+                                onClick={() =>
+                                    setModal({ kind: "position", unitId })
+                                }
+                            >
+                                <FontAwesomeIcon
+                                    icon={faPlus}
+                                    className="me-1"
+                                />
+                                Position
+                            </button>
+                        </div>
                     </div>
-                </div>
                 )}
             </section>
         );
@@ -899,82 +932,74 @@ function StructureEditorModal({
     }
     return (
         <ModalShell onClose={onClose} busy={saving}>
-                        <form onSubmit={submit}>
-                            <div className="modal-header">
-                                <h2 className="modal-title fs-5">
-                                    {modal.unit || modal.slot ? "Edit" : "Add"}{" "}
-                                    {modal.kind === "unit"
-                                        ? "Unit"
-                                        : "Position"}
-                                </h2>
-                                <button
-                                    type="button"
-                                    className="btn-close"
-                                    onClick={onClose}
-                                    disabled={saving}
-                                />
+            <form onSubmit={submit}>
+                <div className="modal-header">
+                    <h2 className="modal-title fs-5">
+                        {modal.unit || modal.slot ? "Edit" : "Add"}{" "}
+                        {modal.kind === "unit" ? "Unit" : "Position"}
+                    </h2>
+                    <button
+                        type="button"
+                        className="btn-close"
+                        onClick={onClose}
+                        disabled={saving}
+                    />
+                </div>
+                <div className="modal-body">
+                    {error && <div className="alert alert-danger">{error}</div>}
+                    <label
+                        className="form-label fw-semibold"
+                        htmlFor="structure-editor-name"
+                    >
+                        {modal.kind === "unit" ? "Unit name" : "Position"}
+                    </label>
+                    <input
+                        id="structure-editor-name"
+                        className="form-control"
+                        list={
+                            modal.kind === "position" && !modal.slot
+                                ? "organization-positions"
+                                : undefined
+                        }
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        autoFocus
+                    />
+                    {modal.kind === "position" && !modal.slot && (
+                        <>
+                            <datalist id="organization-positions">
+                                {positions.map((position) => (
+                                    <option
+                                        key={position.positionId}
+                                        value={position.name}
+                                    />
+                                ))}
+                            </datalist>
+                            <div className="small aw-text-muted mt-2">
+                                Choose an existing organization position or
+                                enter a new one.
                             </div>
-                            <div className="modal-body">
-                                {error && (
-                                    <div className="alert alert-danger">
-                                        {error}
-                                    </div>
-                                )}
-                                <label
-                                    className="form-label fw-semibold"
-                                    htmlFor="structure-editor-name"
-                                >
-                                    {modal.kind === "unit"
-                                        ? "Unit name"
-                                        : "Position"}
-                                </label>
-                                <input
-                                    id="structure-editor-name"
-                                    className="form-control"
-                                    list={
-                                        modal.kind === "position" && !modal.slot
-                                            ? "organization-positions"
-                                            : undefined
-                                    }
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    autoFocus
-                                />
-                                {modal.kind === "position" && !modal.slot && (
-                                    <>
-                                        <datalist id="organization-positions">
-                                            {positions.map((position) => (
-                                                <option
-                                                    key={position.positionId}
-                                                    value={position.name}
-                                                />
-                                            ))}
-                                        </datalist>
-                                        <div className="small aw-text-muted mt-2">
-                                            Choose an existing organization
-                                            position or enter a new one.
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                            <div className="modal-footer">
-                                <button
-                                    type="button"
-                                    className="btn aw-btn-secondary"
-                                    onClick={onClose}
-                                    disabled={saving}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="btn aw-btn-app-primary"
-                                    disabled={saving || !name.trim()}
-                                >
-                                    {saving ? "Saving..." : "Save"}
-                                </button>
-                            </div>
-                        </form>
+                        </>
+                    )}
+                </div>
+                <div className="modal-footer">
+                    <button
+                        type="button"
+                        className="btn aw-btn-secondary"
+                        onClick={onClose}
+                        disabled={saving}
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        className="btn aw-btn-app-primary"
+                        disabled={saving || !name.trim()}
+                    >
+                        {saving ? "Saving..." : "Save"}
+                    </button>
+                </div>
+            </form>
         </ModalShell>
     );
 }
@@ -1006,76 +1031,66 @@ function DeleteStructureModal({
             : "Remove assigned People, Meeting Access, and any substitute references before deleting this Position.";
     return (
         <ModalShell onClose={onClose} busy={saving}>
-                        <div className="modal-header">
-                            <h2 className="modal-title fs-5">
-                                Delete{" "}
-                                {target.kind === "unit" ? "Unit" : "Position"}
-                            </h2>
-                            <button
-                                type="button"
-                                className="btn-close"
-                                onClick={onClose}
-                                disabled={saving}
-                            />
-                        </div>
-                        <div className="modal-body">
-                            {error && (
-                                <div className="alert alert-danger">
-                                    {error}
-                                </div>
-                            )}
-                            {blocked ? (
-                                <>
-                                    <p className="mb-2">
-                                        <strong>{name}</strong> can't be deleted
-                                        yet.
-                                    </p>
-                                    <p className="aw-text-muted mb-0">
-                                        {blockedMessage}
-                                    </p>
-                                </>
-                            ) : (
-                                <p className="mb-0">
-                                    Delete <strong>{name}</strong>
-                                    {target.kind === "position"
-                                        ? " from this section"
-                                        : ""}
-                                    ?
-                                </p>
-                            )}
-                        </div>
-                        <div className="modal-footer">
-                            <button
-                                type="button"
-                                className="btn aw-btn-secondary"
-                                onClick={onClose}
-                                disabled={saving}
-                            >
-                                {blocked ? "Close" : "Cancel"}
-                            </button>
-                            {!blocked && (
-                                <button
-                                    type="button"
-                                    className="btn aw-btn-app-primary"
-                                    disabled={saving}
-                                    onClick={async () => {
-                                        setSaving(true);
-                                        setError(null);
-                                        try {
-                                            await onConfirm();
-                                        } catch (err) {
-                                            console.error(err);
-                                            setError(
-                                                "This item couldn't be deleted. Remove its dependent items first and try again.",
-                                            );
-                                            setSaving(false);
-                                        }
-                                    }}
-                                >
-                                    {saving ? "Deleting..." : "Delete"}
-                                </button>
-                            )}
-                        </div>
+            <div className="modal-header">
+                <h2 className="modal-title fs-5">
+                    Delete {target.kind === "unit" ? "Unit" : "Position"}
+                </h2>
+                <button
+                    type="button"
+                    className="btn-close"
+                    onClick={onClose}
+                    disabled={saving}
+                />
+            </div>
+            <div className="modal-body">
+                {error && <div className="alert alert-danger">{error}</div>}
+                {blocked ? (
+                    <>
+                        <p className="mb-2">
+                            <strong>{name}</strong> can't be deleted yet.
+                        </p>
+                        <p className="aw-text-muted mb-0">{blockedMessage}</p>
+                    </>
+                ) : (
+                    <p className="mb-0">
+                        Delete <strong>{name}</strong>
+                        {target.kind === "position" ? " from this section" : ""}
+                        ?
+                    </p>
+                )}
+            </div>
+            <div className="modal-footer">
+                <button
+                    type="button"
+                    className="btn aw-btn-secondary"
+                    onClick={onClose}
+                    disabled={saving}
+                >
+                    {blocked ? "Close" : "Cancel"}
+                </button>
+                {!blocked && (
+                    <button
+                        type="button"
+                        className="btn aw-btn-app-primary"
+                        disabled={saving}
+                        onClick={async () => {
+                            setSaving(true);
+                            setError(null);
+                            try {
+                                await onConfirm();
+                            } catch (err) {
+                                console.error(err);
+                                setError(
+                                    "This item couldn't be deleted. Remove its dependent items first and try again.",
+                                );
+                                setSaving(false);
+                            }
+                        }}
+                    >
+                        {saving ? "Deleting..." : "Delete"}
+                    </button>
+                )}
+            </div>
         </ModalShell>
     );
 }
@@ -1110,117 +1125,101 @@ function MoveUnitModal({
     const selectedUnit = availableUnits.find((unit) => unit.unitId === unitId);
     return (
         <ModalShell onClose={onClose} busy={saving}>
-                        <div className="modal-header">
-                            <h2 className="modal-title fs-5">
-                                Move Position to Unit
-                            </h2>
-                            <button
-                                type="button"
-                                className="btn-close"
-                                onClick={onClose}
-                                disabled={saving}
-                            />
+            <div className="modal-header">
+                <h2 className="modal-title fs-5">Move Position to Unit</h2>
+                <button
+                    type="button"
+                    className="btn-close"
+                    onClick={onClose}
+                    disabled={saving}
+                />
+            </div>
+            <div className="modal-body">
+                {error && <div className="alert alert-danger">{error}</div>}
+                {availableUnits.length === 0 ? (
+                    <p className="mb-0">
+                        There are no Units available for{" "}
+                        <strong>{target.slot.positionName}</strong>.
+                    </p>
+                ) : confirming && selectedUnit ? (
+                    <p className="mb-0">
+                        Are you sure you want to assign{" "}
+                        <strong>{target.slot.positionName}</strong> to{" "}
+                        <strong>{selectedUnit.name}</strong>? This cannot be
+                        undone.
+                    </p>
+                ) : (
+                    <>
+                        <label
+                            className="form-label fw-semibold"
+                            htmlFor="move-position-unit"
+                        >
+                            Unit
+                        </label>
+                        <select
+                            id="move-position-unit"
+                            className="form-select"
+                            value={unitId ?? ""}
+                            onChange={(event) =>
+                                setUnitId(Number(event.target.value))
+                            }
+                        >
+                            {availableUnits.map((unit) => (
+                                <option key={unit.unitId} value={unit.unitId}>
+                                    {unit.name}
+                                </option>
+                            ))}
+                        </select>
+                        <div className="small aw-text-muted mt-2">
+                            Once this Position is assigned to a Unit, it can't
+                            be moved to another Unit from this screen.
                         </div>
-                        <div className="modal-body">
-                            {error && (
-                                <div className="alert alert-danger">
-                                    {error}
-                                </div>
-                            )}
-                            {availableUnits.length === 0 ? (
-                                <p className="mb-0">
-                                    There are no Units available for{" "}
-                                    <strong>{target.slot.positionName}</strong>.
-                                </p>
-                            ) : confirming && selectedUnit ? (
-                                <p className="mb-0">
-                                    Are you sure you want to assign{" "}
-                                    <strong>{target.slot.positionName}</strong>{" "}
-                                    to <strong>{selectedUnit.name}</strong>?
-                                    This cannot be undone.
-                                </p>
-                            ) : (
-                                <>
-                                    <label
-                                        className="form-label fw-semibold"
-                                        htmlFor="move-position-unit"
-                                    >
-                                        Unit
-                                    </label>
-                                    <select
-                                        id="move-position-unit"
-                                        className="form-select"
-                                        value={unitId ?? ""}
-                                        onChange={(event) =>
-                                            setUnitId(
-                                                Number(event.target.value),
-                                            )
-                                        }
-                                    >
-                                        {availableUnits.map((unit) => (
-                                            <option
-                                                key={unit.unitId}
-                                                value={unit.unitId}
-                                            >
-                                                {unit.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <div className="small aw-text-muted mt-2">
-                                        Once this Position is assigned to a
-                                        Unit, it can't be moved to another Unit
-                                        from this screen.
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                        <div className="modal-footer">
-                            <button
-                                type="button"
-                                className="btn aw-btn-secondary"
-                                onClick={
-                                    confirming
-                                        ? () => setConfirming(false)
-                                        : onClose
+                    </>
+                )}
+            </div>
+            <div className="modal-footer">
+                <button
+                    type="button"
+                    className="btn aw-btn-secondary"
+                    onClick={confirming ? () => setConfirming(false) : onClose}
+                    disabled={saving}
+                >
+                    {confirming ? "Back" : "Cancel"}
+                </button>
+                {availableUnits.length > 0 &&
+                    (!confirming ? (
+                        <button
+                            type="button"
+                            className="btn aw-btn-app-primary"
+                            disabled={unitId == null}
+                            onClick={() => setConfirming(true)}
+                        >
+                            Continue
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            className="btn aw-btn-app-primary"
+                            disabled={saving || unitId == null}
+                            onClick={async () => {
+                                if (unitId == null) return;
+                                setSaving(true);
+                                setError(null);
+                                try {
+                                    await onConfirm(unitId);
+                                } catch (err) {
+                                    console.error(err);
+                                    setError(
+                                        "Unable to move that Position to the selected Unit.",
+                                    );
+                                    setSaving(false);
                                 }
-                                disabled={saving}
-                            >
-                                {confirming ? "Back" : "Cancel"}
-                            </button>
-                            {availableUnits.length > 0 &&
-                                (!confirming ? (
-                                    <button
-                                        type="button"
-                                        className="btn aw-btn-app-primary"
-                                        disabled={unitId == null}
-                                        onClick={() => setConfirming(true)}
-                                    >
-                                        Continue
-                                    </button>
-                                ) : (
-                                    <button
-                                        type="button"
-                                        className="btn aw-btn-app-primary"
-                                        disabled={saving || unitId == null}
-                                        onClick={async () => {
-                                            if (unitId == null) return;
-                                            setSaving(true);
-                                            setError(null);
-                                            try {
-                                                await onConfirm(unitId);
-                                            } catch (err) {
-                                                console.error(err);
-                                                setError(
-                                                    "Unable to move that Position to the selected Unit.",
-                                                );
-                                                setSaving(false);
-                                            }
-                                        }}
-                                    >
-                                        {saving ? "Moving..." : "Move Position"}
-                                    </button>
-                                ))}
-                        </div>
+                            }}
+                        >
+                            {saving ? "Moving..." : "Move Position"}
+                        </button>
+                    ))}
+            </div>
         </ModalShell>
     );
 }

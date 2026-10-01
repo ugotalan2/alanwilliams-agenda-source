@@ -3,10 +3,28 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
 import { OrganizationForm } from "../../organization/components/OrganizationForm";
+import {
+    getOrganizationMembers,
+    updateOrganization,
+    updateOrganizationMembership,
+} from "../../organization/api/organizationApi";
 import { useOrganization } from "../../organization/context/OrganizationContext";
+
+vi.mock("@clerk/react", () => ({
+    useAuth: () => ({
+        getToken: vi.fn(),
+    }),
+}));
 
 vi.mock("../../organization/context/OrganizationContext", () => ({
     useOrganization: vi.fn(),
+}));
+
+vi.mock("../../organization/api/organizationApi", () => ({
+    getOrganizationMembers: vi.fn(),
+    updateOrganization: vi.fn(),
+    updateOrganizationMembership: vi.fn(),
+    updateOrganizationMemberRole: vi.fn(),
 }));
 
 const navigate = vi.fn();
@@ -49,7 +67,23 @@ describe("OrganizationForm", () => {
             displayName: "Alan",
         });
 
-        update.mockResolvedValue(undefined);
+        vi.mocked(getOrganizationMembers).mockResolvedValue([]);
+        vi.mocked(updateOrganization).mockResolvedValue({
+            membershipId: 1,
+            organizationId: 1,
+            organizationName: "Ward Council",
+            role: "OWNER",
+            displayName: "Alan",
+            status: "ACTIVE",
+        });
+        vi.mocked(updateOrganizationMembership).mockResolvedValue({
+            membershipId: 1,
+            organizationId: 1,
+            organizationName: "Ward Council",
+            role: "OWNER",
+            displayName: "Alan",
+            status: "ACTIVE",
+        });
     });
 
     it("creates an organization", async () => {
@@ -98,10 +132,12 @@ describe("OrganizationForm", () => {
                 <OrganizationForm
                     mode="edit"
                     organization={{
+                        membershipId: 1,
                         organizationId: 1,
                         organizationName: "Ward Council",
                         role: "OWNER",
                         displayName: "Alan",
+                        status: "ACTIVE",
                     }}
                 />
             </MemoryRouter>,
@@ -120,10 +156,12 @@ describe("OrganizationForm", () => {
                 <OrganizationForm
                     mode="edit"
                     organization={{
+                        membershipId: 1,
                         organizationId: 1,
                         organizationName: "Ward Council",
                         role: "MEMBER",
                         displayName: "Alan",
+                        status: "ACTIVE",
                     }}
                 />
             </MemoryRouter>,
@@ -135,7 +173,11 @@ describe("OrganizationForm", () => {
             }),
         ).not.toBeInTheDocument();
 
-        expect(screen.getByText("Ward Council")).toBeInTheDocument();
+        expect(
+            screen.getByLabelText(
+                "What should people call you in this organization?",
+            ),
+        ).toHaveValue("Alan");
     });
 
     it("updates organization settings", async () => {
@@ -144,46 +186,57 @@ describe("OrganizationForm", () => {
                 <OrganizationForm
                     mode="edit"
                     organization={{
+                        membershipId: 1,
                         organizationId: 1,
                         organizationName: "Ward Council",
                         role: "OWNER",
                         displayName: "Alan",
+                        status: "ACTIVE",
                     }}
                 />
             </MemoryRouter>,
         );
 
-        fireEvent.change(screen.getByLabelText("Organization name"), {
+        const organizationName = screen.getByLabelText("Organization name");
+
+        fireEvent.change(organizationName, {
             target: {
                 value: "Bishopric",
             },
         });
 
-        fireEvent.change(
-            screen.getByLabelText(
-                "What should people call you in this organization?",
-            ),
-            {
-                target: {
-                    value: "Alan Williams",
-                },
-            },
-        );
-
-        fireEvent.click(
-            screen.getByRole("button", {
-                name: "Save Changes",
-            }),
-        );
+        fireEvent.blur(organizationName);
 
         await waitFor(() => {
-            expect(update).toHaveBeenCalledWith({
-                organizationId: 1,
-                organizationName: "Bishopric",
-                displayName: "Alan Williams",
-            });
+            expect(updateOrganization).toHaveBeenCalledWith(
+                expect.any(Function),
+                1,
+                {
+                    name: "Bishopric",
+                },
+            );
         });
 
-        expect(navigate).toHaveBeenCalledWith("/organizations");
+        const displayName = screen.getByLabelText(
+            "What should people call you in this organization?",
+        );
+
+        fireEvent.change(displayName, {
+            target: {
+                value: "Alan Williams",
+            },
+        });
+
+        fireEvent.blur(displayName);
+
+        await waitFor(() => {
+            expect(updateOrganizationMembership).toHaveBeenCalledWith(
+                expect.any(Function),
+                1,
+                {
+                    displayName: "Alan Williams",
+                },
+            );
+        });
     });
 });

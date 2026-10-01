@@ -1,5 +1,5 @@
 import { useClerk } from "@clerk/react";
-import { AppHeader } from "@ugotalan2/ui";
+import { AppHeader, AppearanceMenu } from "@ugotalan2/ui";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import {
@@ -7,7 +7,6 @@ import {
     faCheck,
     faComments,
     faListCheck,
-    faRightToBracket,
 } from "@fortawesome/free-solid-svg-icons";
 
 import agendaLogo from "../styles/icons/agenda-icon.png";
@@ -24,15 +23,8 @@ function LandingPage() {
                 darkLogoSrc={agendaLogo}
                 authLoaded={true}
                 signedIn={false}
-                signedOutMenu={
-                    <button
-                        type="button"
-                        className="btn aw-btn-app-primary"
-                        onClick={() => openSignIn()}
-                    >
-                        Sign In / Sign Up
-                    </button>
-                }
+                signedOutMenu={<AppearanceMenu />}
+                onSignIn={() => openSignIn()}
             />
 
             <main>
@@ -63,18 +55,6 @@ function LandingPage() {
                                         onClick={() => openSignUp()}
                                     >
                                         Get Started
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        className="btn aw-btn-secondary btn-lg"
-                                        onClick={() => openSignIn()}
-                                    >
-                                        <FontAwesomeIcon
-                                            icon={faRightToBracket}
-                                            className="me-2"
-                                        />
-                                        Sign In / Sign Up
                                     </button>
                                 </div>
                             </div>

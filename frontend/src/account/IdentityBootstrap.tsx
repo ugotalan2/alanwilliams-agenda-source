@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "@clerk/react";
-import { PlatformIdentityGate } from "@ugotalan2/ui";
+import { PlatformIdentityGate, useTheme } from "@ugotalan2/ui";
+
+import { clearPendingReturnTo, takePendingReturnTo } from "./pendingReturnTo";
 
 interface IdentityResponse {
     clerkUserId: string;
@@ -11,13 +13,22 @@ interface IdentityBootstrapProps {
     children: ReactNode;
 }
 
+interface PlatformProfileResponse {
+    appearanceMode: "SYSTEM" | "LIGHT" | "DARK";
+}
+
 const API_BASE_URL =
     import.meta.env.VITE_API_URL ?? "http://localhost:8080/agenda";
 
-const PLATFORM_URL = import.meta.env.VITE_PLATFORM_URL;
+const PLATFORM_API_BASE_URL =
+    import.meta.env.VITE_PLATFORM_API_URL ?? "http://localhost:8081/platform";
+
+const PLATFORM_URL =
+    import.meta.env.VITE_PLATFORM_URL ?? "http://localhost:5174";
 
 export function IdentityBootstrap({ children }: IdentityBootstrapProps) {
     const { getToken } = useAuth();
+    const { setPreference } = useTheme();
 
     const [platformPersonId, setPlatformPersonId] = useState<
         number | null | undefined
@@ -45,6 +56,35 @@ export function IdentityBootstrap({ children }: IdentityBootstrapProps) {
                 const body = (await response.json()) as IdentityResponse;
 
                 setPlatformPersonId(body.platformPersonId);
+
+                if (body.platformPersonId !== null) {
+                    clearPendingReturnTo();
+                    const platformResponse = await fetch(
+                        `${PLATFORM_API_BASE_URL}/me`,
+                        {
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                            },
+                        },
+                    );
+
+                    if (!platformResponse.ok) {
+                        throw new Error(
+                            `Platform profile request failed: ${platformResponse.status}`,
+                        );
+                    }
+
+                    const platformProfile =
+                        (await platformResponse.json()) as PlatformProfileResponse;
+
+                    setPreference(
+                        platformProfile.appearanceMode === "DARK"
+                            ? "dark"
+                            : platformProfile.appearanceMode === "LIGHT"
+                              ? "light"
+                              : "system",
+                    );
+                }
             } catch (err) {
                 console.error(err);
                 setError("Unable to load your Agenda identity.");
@@ -52,7 +92,31 @@ export function IdentityBootstrap({ children }: IdentityBootstrapProps) {
         }
 
         void loadIdentity();
-    }, [getToken]);
+    }, [getToken, setPreference]);
+
+    useEffect(() => {
+        if (platformPersonId !== null) {
+            return;
+        }
+
+        const onboardingUrl = new URL("/onboarding", PLATFORM_URL);
+        const pendingReturnTo = takePendingReturnTo();
+        onboardingUrl.searchParams.set(
+            "returnTo",
+            pendingReturnTo ?? window.location.href,
+        );
+        window.location.assign(onboardingUrl.toString());
+    }, [platformPersonId]);
+
+    if (platformPersonId === null) {
+        return (
+            <main className="container py-4">
+                <p className="aw-text-muted mb-0">
+                    Continuing to Platform onboarding...
+                </p>
+            </main>
+        );
+    }
 
     if (error) {
         return (
@@ -69,7 +133,7 @@ export function IdentityBootstrap({ children }: IdentityBootstrapProps) {
     return (
         <PlatformIdentityGate
             platformPersonId={platformPersonId}
-            platformBaseUrl={PLATFORM_URL}
+            platformBaseUrl={import.meta.env.VITE_PLATFORM_URL}
             loading={platformPersonId === undefined}
             loadingFallback={
                 <main className="container py-4">

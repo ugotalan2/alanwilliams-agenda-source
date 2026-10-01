@@ -30,7 +30,25 @@ async function apiFetch<T>(
     });
 
     if (!response.ok) {
-        throw new Error(`Agenda API request failed: ${response.status}`);
+        let message = `Agenda API request failed: ${response.status}`;
+
+        try {
+            const body = await response.json();
+
+            if (typeof body?.detail === "string") {
+                message = body.detail;
+            } else if (typeof body?.message === "string") {
+                message = body.message;
+            }
+        } catch {
+            // Keep default message.
+        }
+
+        throw new Error(message);
+    }
+
+    if (response.status === 204) {
+        return null as T;
     }
 
     return response.json() as Promise<T>;

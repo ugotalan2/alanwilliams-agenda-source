@@ -20,4 +20,5 @@ export interface OrganizationManagedMember {
     role: OrganizationRole;
     invitedEmail: string | null;
     invitationStatus: InvitationStatus | null;
+    endDate: string | null;
 }

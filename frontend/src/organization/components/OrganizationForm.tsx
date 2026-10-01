@@ -1,7 +1,11 @@
 import { useAuth } from "@clerk/react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPlus, faUserShield, faXmark } from "@fortawesome/free-solid-svg-icons";
+import {
+    faPlus,
+    faUserShield,
+    faXmark,
+} from "@fortawesome/free-solid-svg-icons";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -47,15 +51,21 @@ export function OrganizationForm(props: OrganizationFormProps) {
     const [loadingMembers, setLoadingMembers] = useState(false);
     const [changingRoleId, setChangingRoleId] = useState<number | null>(null);
     const [submitting, setSubmitting] = useState(false);
-    const [savingField, setSavingField] = useState<"organizationName" | "displayName" | null>(null);
+    const [savingField, setSavingField] = useState<
+        "organizationName" | "displayName" | null
+    >(null);
     const [savedOrganizationName, setSavedOrganizationName] = useState(
         organization?.organizationName ?? "",
     );
     const [savedDisplayName, setSavedDisplayName] = useState(
         organization?.displayName ?? "",
     );
-    const [savedField, setSavedField] = useState<"organizationName" | "displayName" | null>(null);
-    const [fieldError, setFieldError] = useState<"organizationName" | "displayName" | null>(null);
+    const [savedField, setSavedField] = useState<
+        "organizationName" | "displayName" | null
+    >(null);
+    const [fieldError, setFieldError] = useState<
+        "organizationName" | "displayName" | null
+    >(null);
     const [error, setError] = useState<string | null>(null);
 
     async function refreshMembers() {
@@ -77,6 +87,8 @@ export function OrganizationForm(props: OrganizationFormProps) {
     }
 
     useEffect(() => {
+        // Load administrators when the editable organization/role changes.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         void refreshMembers();
         // refresh when the organization/role changes; getToken is stable enough for this request.
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -172,10 +184,7 @@ export function OrganizationForm(props: OrganizationFormProps) {
         }
     }
 
-    async function changeRole(
-        membershipId: number,
-        role: "ADMIN" | "MEMBER",
-    ) {
+    async function changeRole(membershipId: number, role: "ADMIN" | "MEMBER") {
         if (!organization) return;
         setChangingRoleId(membershipId);
         setError(null);
@@ -218,7 +227,8 @@ export function OrganizationForm(props: OrganizationFormProps) {
                                 }
                                 onBlur={() => void saveOrganizationName()}
                                 onKeyDown={(event) => {
-                                    if (event.key === "Enter") event.currentTarget.blur();
+                                    if (event.key === "Enter")
+                                        event.currentTarget.blur();
                                 }}
                                 disabled={savingField === "organizationName"}
                                 maxLength={150}
@@ -226,14 +236,19 @@ export function OrganizationForm(props: OrganizationFormProps) {
                                 required
                             />
                             <div className="form-text">
-                                The name everyone will see for this organization.
+                                The name everyone will see for this
+                                organization.
                             </div>
                             {savingField === "organizationName" && (
-                                <div className="small aw-text-muted mt-1">Saving…</div>
+                                <div className="small aw-text-muted mt-1">
+                                    Saving…
+                                </div>
                             )}
                             {savingField !== "organizationName" &&
                                 savedField === "organizationName" && (
-                                    <div className="small text-success mt-1">✓ Saved</div>
+                                    <div className="small text-success mt-1">
+                                        ✓ Saved
+                                    </div>
                                 )}
                             {fieldError === "organizationName" && (
                                 <div className="small text-danger mt-1">
@@ -260,7 +275,8 @@ export function OrganizationForm(props: OrganizationFormProps) {
                             }
                             onBlur={() => void saveDisplayName()}
                             onKeyDown={(event) => {
-                                if (event.key === "Enter") event.currentTarget.blur();
+                                if (event.key === "Enter")
+                                    event.currentTarget.blur();
                             }}
                             disabled={savingField === "displayName"}
                             placeholder="Your name"
@@ -271,11 +287,15 @@ export function OrganizationForm(props: OrganizationFormProps) {
                             This is how your name will appear to other members.
                         </div>
                         {savingField === "displayName" && (
-                            <div className="small aw-text-muted mt-1">Saving…</div>
+                            <div className="small aw-text-muted mt-1">
+                                Saving…
+                            </div>
                         )}
                         {savingField !== "displayName" &&
                             savedField === "displayName" && (
-                                <div className="small text-success mt-1">✓ Saved</div>
+                                <div className="small text-success mt-1">
+                                    ✓ Saved
+                                </div>
                             )}
                         {fieldError === "displayName" && (
                             <div className="small text-danger mt-1">

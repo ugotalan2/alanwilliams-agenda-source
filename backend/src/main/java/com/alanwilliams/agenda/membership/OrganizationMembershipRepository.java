@@ -47,6 +47,19 @@ public interface OrganizationMembershipRepository
             List<MembershipStatus> statuses
     );
 
+    List<OrganizationMembership>
+    findByOrganizationIdAndProvisionalEmailIgnoreCaseOrderByCreatedAtDesc(
+            Long organizationId,
+            String provisionalEmail
+    );
+
+    Optional<OrganizationMembership>
+    findByOrganizationIdAndOrganizationRoleAndStatus(
+            Long organizationId,
+            OrganizationRole organizationRole,
+            MembershipStatus status
+    );
+
     boolean existsByOrganizationIdAndPersonIdAndStatusIn(
             Long organizationId,
             Long personId,

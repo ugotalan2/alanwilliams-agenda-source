@@ -254,15 +254,29 @@ public class MeetingAccessService {
                     );
 
             if (current.source() != MeetingAccessSource.NONE) {
+                String existingPath =
+                        current.source() == MeetingAccessSource.POSITION
+                                ? formatPositionPath(current)
+                                : "direct Meeting Access";
+
                 throw new ResponseStatusException(
                         HttpStatus.CONFLICT,
-                        "Assigning this Position would create conflicting Meeting Access for "
-                                + membership.getDisplayName()
-                                + " in "
+                        membership.getDisplayName()
+                                + " cannot be added to this Position because they already attend "
                                 + positionAccess.getMeetingType().getName()
+                                + " through "
+                                + existingPath
                                 + "."
                 );
             }
         }
+    }
+
+    private String formatPositionPath(EffectiveMeetingAccess access) {
+        if (access.unitName() == null || access.unitName().isBlank()) {
+            return access.positionName();
+        }
+
+        return access.unitName() + " · " + access.positionName();
     }
 }

@@ -27,16 +27,20 @@ vi.mock("react-router-dom", async () => {
 
 const organizations = [
     {
+        membershipId: 1,
         organizationId: 1,
         organizationName: "Ward Council",
         role: "OWNER" as const,
         displayName: "Alan",
+        status: "ACTIVE" as const,
     },
     {
+        membershipId: 2,
         organizationId: 2,
         organizationName: "Bishopric",
         role: "MEMBER" as const,
         displayName: "Alan",
+        status: "ACTIVE" as const,
     },
 ];
 

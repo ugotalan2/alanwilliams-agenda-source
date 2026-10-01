@@ -101,6 +101,8 @@ export function MeetingProvider({ children }: { children: ReactNode }) {
     }, [getToken, isLoaded, isSignedIn, organizationId, organizationLoading]);
 
     useEffect(() => {
+        // Initial/context-change data load intentionally updates provider state.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         void refresh();
     }, [refresh]);
 
@@ -239,6 +241,7 @@ export function MeetingProvider({ children }: { children: ReactNode }) {
     );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useMeeting() {
     const context = useContext(MeetingContext);
 

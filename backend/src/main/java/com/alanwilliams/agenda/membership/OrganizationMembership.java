@@ -133,6 +133,19 @@ public class OrganizationMembership {
         this.updatedAt = Instant.now();
     }
 
+    public void prepareForReinvite(
+            String displayName,
+            String provisionalEmail,
+            OrganizationRole organizationRole
+    ) {
+        this.personId = null;
+        this.displayName = displayName.trim();
+        this.provisionalEmail = provisionalEmail.trim().toLowerCase();
+        this.status = MembershipStatus.PENDING;
+        this.organizationRole = organizationRole;
+        this.updatedAt = Instant.now();
+    }
+
     public void changeProvisionalEmail(
             String provisionalEmail
     ) {

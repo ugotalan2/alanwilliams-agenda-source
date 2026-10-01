@@ -3,7 +3,6 @@ import { useAuth } from "@clerk/react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faArrowRight,
-    faEllipsisVertical,
     faTrash,
     faUser,
 } from "@fortawesome/free-solid-svg-icons";
@@ -31,8 +30,10 @@ import {
     getManagedOrganizationMembers,
     issueMemberInvitation,
     revokeMemberInvitation,
+    removeOrganizationMember,
 } from "../api/memberApi";
 import { CreateProvisionalMemberModal } from "../components/CreateProvisionalMemberModal";
+import { RemoveOrganizationMemberModal } from "../components/RemoveOrganizationMemberModal";
 
 import {
     archiveUnit,
@@ -54,6 +55,7 @@ import {
 } from "../../structure/api/structureApi";
 
 import { StructureManagement } from "../../structure/components/StructureManagement";
+import { ActionMenu } from "../../structure/components/ActionMenu";
 
 import { AssignMemberModal } from "../../structure/components/AssignMemberModal";
 
@@ -115,6 +117,9 @@ export function ManageMembersPage() {
     } | null>(null);
 
     const [createMemberOpen, setCreateMemberOpen] = useState(false);
+
+    const [removingMember, setRemovingMember] =
+        useState<OrganizationManagedMember | null>(null);
 
     const organizationId = activeOrganization?.organizationId;
 
@@ -227,7 +232,8 @@ export function ManageMembersPage() {
     );
 
     useEffect(() => {
-        void load(true);
+        const timeoutId = window.setTimeout(() => void load(true), 0);
+        return () => window.clearTimeout(timeoutId);
     }, [load]);
 
     useEffect(() => {
@@ -437,11 +443,7 @@ export function ManageMembersPage() {
         }
 
         try {
-            await issueMemberInvitation(
-                getToken,
-                organizationId,
-                membershipId,
-            );
+            await issueMemberInvitation(getToken, organizationId, membershipId);
             await load(false);
         } catch (err) {
             console.error(err);
@@ -465,6 +467,28 @@ export function ManageMembersPage() {
             console.error(err);
             setActionError("Unable to revoke that invitation.");
         }
+    }
+
+    function canRemoveOrganizationMember(member: OrganizationManagedMember) {
+        if (member.role === "OWNER") {
+            return false;
+        }
+
+        return member.role !== "ADMIN" || activeOrganization?.role === "OWNER";
+    }
+
+    async function handleRemoveOrganizationMember() {
+        if (!organizationId || !removingMember) {
+            return;
+        }
+
+        await removeOrganizationMember(
+            getToken,
+            organizationId,
+            removingMember.membershipId,
+        );
+
+        await load(false);
     }
 
     async function handleEndAssignment() {
@@ -651,12 +675,14 @@ export function ManageMembersPage() {
                                     onEditMeeting={(slot, access) =>
                                         setMeetingEditor({ slot, access })
                                     }
-                                    onRemoveMeeting={
-                                        handleRemoveMeetingAccess
-                                    }
+                                    onRemoveMeeting={handleRemoveMeetingAccess}
                                     onSendInvitation={handleSendInvitation}
-                                    onRevokeInvitation={
-                                        handleRevokeInvitation
+                                    onRevokeInvitation={handleRevokeInvitation}
+                                    canRemoveOrganizationMember={
+                                        canRemoveOrganizationMember
+                                    }
+                                    onRemoveOrganizationMember={
+                                        setRemovingMember
                                     }
                                 />
 
@@ -697,75 +723,120 @@ export function ManageMembersPage() {
                                                             {member.membershipStatus ===
                                                             "ACTIVE"
                                                                 ? "Joined"
-                                                                : formatInvitationStatus(
-                                                                      member.invitationStatus,
-                                                                  )}
+                                                                : member.invitationStatus ===
+                                                                    "PENDING"
+                                                                  ? "Invitation sent"
+                                                                  : "Pending"}
                                                         </div>
+
+                                                        {member.membershipStatus ===
+                                                            "PENDING" &&
+                                                            member.endDate && (
+                                                                <div className="small aw-text-muted">
+                                                                    Previously
+                                                                    left{" "}
+                                                                    {formatMembershipDate(
+                                                                        member.endDate,
+                                                                    )}
+                                                                </div>
+                                                            )}
                                                     </div>
 
-                                                    {member.membershipStatus !==
-                                                        "ACTIVE" && (
-                                                        <details className="dropdown aw-action-menu">
-                                                            <summary
-                                                                className="btn btn-sm aw-btn-secondary"
-                                                                title="Person actions"
-                                                            >
-                                                                <FontAwesomeIcon
-                                                                    icon={
-                                                                        faEllipsisVertical
-                                                                    }
-                                                                />
-                                                            </summary>
+                                                    {(member.membershipStatus !==
+                                                        "ACTIVE" ||
+                                                        canRemoveOrganizationMember(
+                                                            member,
+                                                        )) && (
+                                                        <ActionMenu
+                                                            triggerClassName="btn btn-sm aw-btn-menu"
+                                                            title="Person actions"
+                                                        >
                                                             <ul className="dropdown-menu dropdown-menu-end">
-                                                                <li>
-                                                                    <button
-                                                                        type="button"
-                                                                        className="dropdown-item"
-                                                                        onClick={() => {
-                                                                            closeActionMenus();
-                                                                            void handleSendInvitation(
-                                                                                member.membershipId,
-                                                                            );
-                                                                        }}
-                                                                    >
-                                                                        <FontAwesomeIcon
-                                                                            icon={
-                                                                                faArrowRight
-                                                                            }
-                                                                            className="me-2"
-                                                                        />
+                                                                {member.membershipStatus !==
+                                                                    "ACTIVE" && (
+                                                                    <>
+                                                                        <li>
+                                                                            <button
+                                                                                type="button"
+                                                                                className="dropdown-item"
+                                                                                onClick={() => {
+                                                                                    void handleSendInvitation(
+                                                                                        member.membershipId,
+                                                                                    );
+                                                                                }}
+                                                                            >
+                                                                                <FontAwesomeIcon
+                                                                                    icon={
+                                                                                        faArrowRight
+                                                                                    }
+                                                                                    className="me-2"
+                                                                                />
+                                                                                {member.invitationStatus ===
+                                                                                "PENDING"
+                                                                                    ? "Resend Invite"
+                                                                                    : "Send Invite"}
+                                                                            </button>
+                                                                        </li>
                                                                         {member.invitationStatus ===
-                                                                        "PENDING"
-                                                                            ? "Resend Invite"
-                                                                            : "Send Invite"}
-                                                                    </button>
-                                                                </li>
-                                                                {member.invitationStatus ===
-                                                                    "PENDING" && (
-                                                                    <li>
-                                                                        <button
-                                                                            type="button"
-                                                                            className="dropdown-item"
-                                                                            onClick={() => {
-                                                                                closeActionMenus();
-                                                                                void handleRevokeInvitation(
-                                                                                    member.membershipId,
-                                                                                );
-                                                                            }}
-                                                                        >
-                                                                            <FontAwesomeIcon
-                                                                                icon={
-                                                                                    faTrash
+                                                                            "PENDING" && (
+                                                                            <li>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    className="dropdown-item"
+                                                                                    onClick={() => {
+                                                                                        void handleRevokeInvitation(
+                                                                                            member.membershipId,
+                                                                                        );
+                                                                                    }}
+                                                                                >
+                                                                                    <FontAwesomeIcon
+                                                                                        icon={
+                                                                                            faTrash
+                                                                                        }
+                                                                                        className="me-2"
+                                                                                    />
+                                                                                    Revoke
+                                                                                    Invite
+                                                                                </button>
+                                                                            </li>
+                                                                        )}
+                                                                    </>
+                                                                )}
+                                                                {canRemoveOrganizationMember(
+                                                                    member,
+                                                                ) && (
+                                                                    <>
+                                                                        {member.membershipStatus !==
+                                                                            "ACTIVE" && (
+                                                                            <li>
+                                                                                <hr className="dropdown-divider" />
+                                                                            </li>
+                                                                        )}
+                                                                        <li>
+                                                                            <button
+                                                                                type="button"
+                                                                                className="dropdown-item text-danger"
+                                                                                onClick={() =>
+                                                                                    setRemovingMember(
+                                                                                        member,
+                                                                                    )
                                                                                 }
-                                                                                className="me-2"
-                                                                            />
-                                                                            Revoke
-                                                                            Invite
-                                                                        </button>
-                                                                    </li>
+                                                                            >
+                                                                                <FontAwesomeIcon
+                                                                                    icon={
+                                                                                        faTrash
+                                                                                    }
+                                                                                    className="me-2"
+                                                                                />
+                                                                                Remove
+                                                                                from
+                                                                                Organization
+                                                                            </button>
+                                                                        </li>
+                                                                    </>
                                                                 )}
                                                             </ul>
-                                                        </details>
+                                                        </ActionMenu>
                                                     )}
                                                 </div>
                                             ))
@@ -838,6 +909,15 @@ export function ManageMembersPage() {
                 />
             )}
 
+            {removingMember && activeOrganization && (
+                <RemoveOrganizationMemberModal
+                    member={removingMember}
+                    organizationName={activeOrganization.organizationName}
+                    onClose={() => setRemovingMember(null)}
+                    onConfirm={handleRemoveOrganizationMember}
+                />
+            )}
+
             {createMemberOpen && (
                 <CreateProvisionalMemberModal
                     onClose={() => setCreateMemberOpen(false)}
@@ -848,21 +928,13 @@ export function ManageMembersPage() {
     );
 }
 
-function closeActionMenus() {
-    document
-        .querySelectorAll<HTMLDetailsElement>("details.aw-action-menu[open]")
-        .forEach((menu) => menu.removeAttribute("open"));
-}
-
-function formatInvitationStatus(
-    status: OrganizationManagedMember["invitationStatus"],
-) {
-    if (!status) {
-        return "No invite";
-    }
-
-    const normalized = status.toLowerCase();
-    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+function formatMembershipDate(value: string) {
+    return new Intl.DateTimeFormat(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        timeZone: "UTC",
+    }).format(new Date(`${value}T00:00:00Z`));
 }
 
 function formatOrganizationRole(role: OrganizationManagedMember["role"]) {

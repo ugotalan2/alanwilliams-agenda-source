@@ -97,6 +97,7 @@ describe("InvitationPage", () => {
         );
         expect(openSignIn).toHaveBeenCalledWith({
             forceRedirectUrl: invitationUrl,
+            signUpForceRedirectUrl: invitationUrl,
         });
     });
 
@@ -113,6 +114,7 @@ describe("InvitationPage", () => {
         );
         expect(openSignUp).toHaveBeenCalledWith({
             forceRedirectUrl: invitationUrl,
+            signInForceRedirectUrl: invitationUrl,
         });
     });
 
@@ -141,7 +143,12 @@ describe("InvitationPage", () => {
             ...pendingInvitation,
             status: "ACCEPTED",
         });
-        vi.mocked(switchOrganization).mockResolvedValue(undefined);
+        vi.mocked(switchOrganization).mockResolvedValue({
+            organizationId: 30,
+            organizationName: "Test Organization",
+            role: "MEMBER",
+            displayName: "Invite User",
+        });
 
         renderInvitation();
 

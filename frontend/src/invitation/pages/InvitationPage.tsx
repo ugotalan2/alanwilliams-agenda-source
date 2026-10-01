@@ -114,6 +114,7 @@ function SignedOutInvitation({
                                 preserveInvitation();
                                 openSignIn({
                                     forceRedirectUrl: returnTo,
+                                    signUpForceRedirectUrl: returnTo,
                                 });
                             }}
                         >
@@ -127,6 +128,7 @@ function SignedOutInvitation({
                                 preserveInvitation();
                                 openSignUp({
                                     forceRedirectUrl: returnTo,
+                                    signInForceRedirectUrl: returnTo,
                                 });
                             }}
                         >

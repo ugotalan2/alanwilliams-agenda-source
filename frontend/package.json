@@ -22,7 +22,7 @@
     "@fortawesome/fontawesome-svg-core": "^7.3.0",
     "@fortawesome/free-solid-svg-icons": "^7.3.0",
     "@fortawesome/react-fontawesome": "^3.3.1",
-    "@ugotalan2/ui": "^0.5.17",
+    "@ugotalan2/ui": "^0.5.18",
     "bootstrap": "^5.3.8",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",

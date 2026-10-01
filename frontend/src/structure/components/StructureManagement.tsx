@@ -34,8 +34,7 @@ import {
     verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ModalShell } from "@ugotalan2/ui";
-import { ActionMenu } from "./ActionMenu";
+import { ActionMenu, ModalShell } from "@ugotalan2/ui";
 import type { OrganizationManagedMember } from "../../membership/types";
 import type { MeetingType } from "../../meeting/api/meetingTypeApi";
 import type { MeetingAccessWithMeetingType } from "../../access/types";

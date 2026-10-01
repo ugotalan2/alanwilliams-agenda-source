@@ -70,9 +70,15 @@ vi.mock("../../structure/components/StructureManagement", () => ({
     StructureManagement: () => null,
 }));
 
-vi.mock("../../structure/components/ActionMenu", () => ({
-    ActionMenu: ({ children }: { children: ReactNode }) => children,
-}));
+vi.mock("@ugotalan2/ui", async () => {
+    const actual =
+        await vi.importActual<typeof import("@ugotalan2/ui")>("@ugotalan2/ui");
+
+    return {
+        ...actual,
+        ActionMenu: ({ children }: { children: ReactNode }) => children,
+    };
+});
 
 const pendingMember = {
     membershipId: 50,
@@ -140,7 +146,9 @@ describe("ManageMembersPage", () => {
     it("allows an owner to send an invitation to a pending member", async () => {
         render(<ManageMembersPage />);
 
-        fireEvent.click(await screen.findByRole("button", { name: /send invite/i }));
+        fireEvent.click(
+            await screen.findByRole("button", { name: /send invite/i }),
+        );
 
         await waitFor(() => {
             expect(issueMemberInvitation).toHaveBeenCalledWith(
@@ -158,7 +166,9 @@ describe("ManageMembersPage", () => {
 
         render(<ManageMembersPage />);
 
-        fireEvent.click(await screen.findByRole("button", { name: /revoke invite/i }));
+        fireEvent.click(
+            await screen.findByRole("button", { name: /revoke invite/i }),
+        );
 
         await waitFor(() => {
             expect(revokeMemberInvitation).toHaveBeenCalledWith(

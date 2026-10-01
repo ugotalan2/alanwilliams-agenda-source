@@ -70,7 +70,10 @@ function renderInvitation() {
     return render(
         <MemoryRouter initialEntries={["/invitations/invite-token"]}>
             <Routes>
-                <Route path="/invitations/:token" element={<InvitationPage />} />
+                <Route
+                    path="/invitations/:token"
+                    element={<InvitationPage />}
+                />
             </Routes>
         </MemoryRouter>,
     );
@@ -123,7 +126,9 @@ describe("InvitationPage", () => {
         renderInvitation();
 
         fireEvent.click(
-            await screen.findByRole("button", { name: /sign out|someone else/i }),
+            await screen.findByRole("button", {
+                name: /sign out|someone else/i,
+            }),
         );
 
         const invitationUrl = `${window.location.origin}/invitations/invite-token`;
@@ -152,9 +157,7 @@ describe("InvitationPage", () => {
 
         renderInvitation();
 
-        fireEvent.click(
-            await screen.findByRole("button", { name: /accept/i }),
-        );
+        fireEvent.click(await screen.findByRole("button", { name: /accept/i }));
 
         await waitFor(() => {
             expect(acceptInvitation).toHaveBeenCalledWith(

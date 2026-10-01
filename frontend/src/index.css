@@ -334,26 +334,6 @@ a {
     z-index: 2000;
 }
 
-.aw-action-menu > summary {
-    list-style: none;
-}
-
-.aw-action-menu > summary::-webkit-details-marker {
-    display: none;
-}
-
-.aw-action-menu .dropdown-menu {
-    position: absolute;
-    right: 0;
-    top: calc(100% + 0.25rem);
-    left: auto;
-    z-index: 1050;
-}
-
-.aw-action-menu[open] .dropdown-menu {
-    display: block;
-}
-
 .aw-structure-drag-handle {
     touch-action: none;
     user-select: none;

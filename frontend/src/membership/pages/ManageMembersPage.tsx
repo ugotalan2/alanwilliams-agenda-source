@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ActionMenu } from "@ugotalan2/ui";
 import { useAuth } from "@clerk/react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -55,8 +56,6 @@ import {
 } from "../../structure/api/structureApi";
 
 import { StructureManagement } from "../../structure/components/StructureManagement";
-import { ActionMenu } from "../../structure/components/ActionMenu";
-
 import { AssignMemberModal } from "../../structure/components/AssignMemberModal";
 
 import { EndAssignmentModal } from "../../structure/components/EndAssignmentModal";

@@ -45,28 +45,29 @@ function AccountMenu() {
         }
     };
 
-
     return (
-            <SharedAccountMenu
-                displayName={user?.fullName ?? undefined}
-                email={user?.primaryEmailAddress?.emailAddress ?? undefined}
-                imageUrl={user?.hasImage ? user.imageUrl : undefined}
-                onProfile={() => {
-                    window.location.assign(`${platformBaseUrl}/account/profile`);
-                }}
-                onApps={() => {
-                    window.location.assign(`${platformBaseUrl}/account/apps`);
-                }}
-                onAppearanceChange={saveAppearance}
-                appItems={[
-                    {
-                        label: "Agenda Settings",
-                        icon: faGear,
-                        onClick: () => navigate("/settings"),
-                    },
-                ]}
-                onSignOut={() => { void clerk.signOut(); }}
-            />
+        <SharedAccountMenu
+            displayName={user?.fullName ?? undefined}
+            email={user?.primaryEmailAddress?.emailAddress ?? undefined}
+            imageUrl={user?.hasImage ? user.imageUrl : undefined}
+            onProfile={() => {
+                window.location.assign(`${platformBaseUrl}/account/profile`);
+            }}
+            onApps={() => {
+                window.location.assign(`${platformBaseUrl}/account/apps`);
+            }}
+            onAppearanceChange={saveAppearance}
+            appItems={[
+                {
+                    label: "Agenda Settings",
+                    icon: faGear,
+                    onClick: () => navigate("/settings"),
+                },
+            ]}
+            onSignOut={() => {
+                void clerk.signOut();
+            }}
+        />
     );
 }
 

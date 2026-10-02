@@ -14,6 +14,7 @@ import {
     faGripVertical,
     faPen,
     faPlus,
+    faStar,
     faTrash,
     faUserMinus,
     faUsers,
@@ -574,6 +575,15 @@ export function StructureManagement(props: Props) {
                                                     >
                                                         <div>
                                                             <span>
+                                                                {access.owner && (
+                                                                    <FontAwesomeIcon
+                                                                        icon={
+                                                                            faStar
+                                                                        }
+                                                                        className="me-1"
+                                                                        title="Meeting owner"
+                                                                    />
+                                                                )}
                                                                 {meetingType?.name ??
                                                                     "Meeting"}
                                                             </span>

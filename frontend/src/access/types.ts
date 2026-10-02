@@ -17,6 +17,7 @@ export interface MeetingAccess {
     positionName: string | null;
 
     substitutionMode: SubstitutionMode;
+    owner: boolean;
 }
 
 export interface MeetingSubstitutePosition {

@@ -6,6 +6,7 @@ import com.alanwilliams.agenda.access.SubstitutionMode;
 public record SetPositionMeetingAccessRequest(
         Long unitPositionId,
         MeetingPermissionRole permissionRole,
-        SubstitutionMode substitutionMode
+        SubstitutionMode substitutionMode,
+        boolean owner
 ) {
 }

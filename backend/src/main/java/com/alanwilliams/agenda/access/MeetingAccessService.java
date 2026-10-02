@@ -127,7 +127,8 @@ public class MeetingAccessService {
                     null,
                     null,
                     null,
-                    null
+                    null,
+                    false
             );
         }
 
@@ -150,7 +151,8 @@ public class MeetingAccessService {
                     unit == null ? null : unit.getName(),
                     unitPosition
                             .getOrganizationPosition()
-                            .getName()
+                            .getName(),
+                    positionAccess.isOwner()
             );
         }
 

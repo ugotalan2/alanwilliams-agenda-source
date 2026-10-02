@@ -7,7 +7,8 @@ public record EffectiveMeetingAccess(
         Long positionAccessId,
         Long unitPositionId,
         String unitName,
-        String positionName
+        String positionName,
+        boolean owner
 ) {
 
     public static EffectiveMeetingAccess none() {
@@ -18,7 +19,8 @@ public record EffectiveMeetingAccess(
                 null,
                 null,
                 null,
-                null
+                null,
+                false
         );
     }
 
@@ -30,7 +32,8 @@ public record EffectiveMeetingAccess(
                 null,
                 null,
                 null,
-                null
+                null,
+                false
         );
     }
 

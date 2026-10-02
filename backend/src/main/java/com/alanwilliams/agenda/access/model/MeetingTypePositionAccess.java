@@ -40,6 +40,9 @@ public class MeetingTypePositionAccess {
     @Column(name = "substitution_mode", nullable = false, length = 20)
     private SubstitutionMode substitutionMode;
 
+    @Column(name = "is_owner", nullable = false)
+    private boolean owner;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -50,7 +53,8 @@ public class MeetingTypePositionAccess {
             MeetingType meetingType,
             OrganizationUnitPosition organizationUnitPosition,
             MeetingPermissionRole permissionRole,
-            SubstitutionMode substitutionMode
+            SubstitutionMode substitutionMode,
+            boolean owner
     ) {
         Instant now = Instant.now();
 
@@ -61,19 +65,22 @@ public class MeetingTypePositionAccess {
                 substitutionMode == null
                         ? SubstitutionMode.NONE
                         : substitutionMode;
+        this.owner = owner;
         this.createdAt = now;
         this.updatedAt = now;
     }
 
     public void update(
             MeetingPermissionRole permissionRole,
-            SubstitutionMode substitutionMode
+            SubstitutionMode substitutionMode,
+            boolean owner
     ) {
         this.permissionRole = permissionRole;
         this.substitutionMode =
                 substitutionMode == null
                         ? SubstitutionMode.NONE
                         : substitutionMode;
+        this.owner = owner;
         this.updatedAt = Instant.now();
     }
 }

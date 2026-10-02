@@ -35,6 +35,11 @@ public interface MeetingTypePositionAccessRepository
     );
 
     Optional<MeetingTypePositionAccess>
+    findByMeetingTypeIdAndOwnerTrue(
+            Long meetingTypeId
+    );
+
+    Optional<MeetingTypePositionAccess>
     findByIdAndMeetingTypeId(
             Long id,
             Long meetingTypeId

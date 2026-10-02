@@ -84,6 +84,7 @@ export function setPositionMeetingAccess(
     unitPositionId: number,
     permissionRole: MeetingPermissionRole,
     substitutionMode: SubstitutionMode,
+    owner: boolean,
 ) {
     return apiFetch<MeetingAccess>(
         getToken,
@@ -97,6 +98,7 @@ export function setPositionMeetingAccess(
                 unitPositionId,
                 permissionRole,
                 substitutionMode,
+                owner,
             }),
         },
     );

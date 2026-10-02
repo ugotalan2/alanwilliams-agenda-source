@@ -513,6 +513,7 @@ export function ManageMembersPage() {
         meetingTypeId: number,
         permissionRole: MeetingPermissionRole,
         substitutionMode: SubstitutionMode,
+        owner: boolean,
     ) {
         if (!organizationId || !meetingEditor) {
             return;
@@ -525,6 +526,7 @@ export function ManageMembersPage() {
             meetingEditor.slot.unitPositionId,
             permissionRole,
             substitutionMode,
+            owner,
         );
 
         await load(false);

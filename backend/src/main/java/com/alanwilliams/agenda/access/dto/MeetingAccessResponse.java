@@ -13,6 +13,7 @@ public record MeetingAccessResponse(
         Long unitPositionId,
         String unitName,
         String positionName,
-        SubstitutionMode substitutionMode
+        SubstitutionMode substitutionMode,
+        boolean owner
 ) {
 }

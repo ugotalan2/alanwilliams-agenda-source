@@ -187,6 +187,24 @@ public class MeetingAccessConfigurationService {
             }
         }
 
+        if (request.owner()) {
+            MeetingTypePositionAccess currentOwner =
+                    positionAccessRepository
+                            .findByMeetingTypeIdAndOwnerTrue(meetingTypeId)
+                            .orElse(null);
+
+            if (currentOwner != null
+                    && (existing == null
+                    || !currentOwner.getId().equals(existing.getId()))) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "You cannot assign multiple positions to be the owner of "
+                                + meetingType.getName()
+                                + "."
+                );
+            }
+        }
+
         MeetingTypePositionAccess access;
 
         if (existing == null) {
@@ -194,12 +212,14 @@ public class MeetingAccessConfigurationService {
                     meetingType,
                     unitPosition,
                     request.permissionRole(),
-                    request.substitutionMode()
+                    request.substitutionMode(),
+                    request.owner()
             );
         } else {
             existing.update(
                     request.permissionRole(),
-                    request.substitutionMode()
+                    request.substitutionMode(),
+                    request.owner()
             );
 
             access = existing;
@@ -450,6 +470,14 @@ public class MeetingAccessConfigurationService {
                     "permissionRole is required."
             );
         }
+
+        if (request.owner()
+                && request.permissionRole() != MeetingPermissionRole.ADMIN) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Meeting owner must have ADMIN permission."
+            );
+        }
     }
 
     private void validateDirectRequest(
@@ -508,7 +536,8 @@ public class MeetingAccessConfigurationService {
                 unitPosition.getId(),
                 unit == null ? null : unit.getName(),
                 unitPosition.getOrganizationPosition().getName(),
-                access.getSubstitutionMode()
+                access.getSubstitutionMode(),
+                access.isOwner()
         );
     }
 
@@ -527,7 +556,8 @@ public class MeetingAccessConfigurationService {
                 null,
                 null,
                 null,
-                null
+                null,
+                false
         );
     }
 }

@@ -19,6 +19,7 @@ interface Props {
         meetingTypeId: number,
         permissionRole: MeetingPermissionRole,
         substitutionMode: SubstitutionMode,
+        owner: boolean,
     ) => Promise<void>;
 }
 
@@ -51,6 +52,7 @@ export function PositionMeetingAccessModal({
     const [substitutionMode, setSubstitutionMode] = useState<SubstitutionMode>(
         editingAccess?.substitutionMode ?? "NONE",
     );
+    const [owner, setOwner] = useState(editingAccess?.owner ?? false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -75,6 +77,7 @@ export function PositionMeetingAccessModal({
                 Number(meetingTypeId),
                 permissionRole,
                 substitutionMode,
+                owner,
             );
             onClose();
         } catch (err) {
@@ -158,17 +161,41 @@ export function PositionMeetingAccessModal({
                         id="position-meeting-role"
                         className="form-select mb-3"
                         value={permissionRole}
-                        onChange={(event) =>
-                            setPermissionRole(
-                                event.target.value as MeetingPermissionRole,
-                            )
-                        }
+                        onChange={(event) => {
+                            const nextRole = event.target
+                                .value as MeetingPermissionRole;
+                            setPermissionRole(nextRole);
+                            if (nextRole !== "ADMIN") {
+                                setOwner(false);
+                            }
+                        }}
                         disabled={saving}
                     >
                         <option value="MEMBER">Member</option>
                         <option value="EDITOR">Editor</option>
                         <option value="ADMIN">Admin</option>
                     </select>
+
+                    <div className="form-check mb-3">
+                        <input
+                            id="position-meeting-owner"
+                            className="form-check-input"
+                            type="checkbox"
+                            checked={owner}
+                            onChange={(event) => setOwner(event.target.checked)}
+                            disabled={saving || permissionRole !== "ADMIN"}
+                        />
+                        <label
+                            htmlFor="position-meeting-owner"
+                            className="form-check-label fw-semibold"
+                        >
+                            Meeting owner
+                        </label>
+                        <div className="small aw-text-muted">
+                            The owner reviews and publishes this meeting's
+                            agendas.
+                        </div>
+                    </div>
 
                     <label
                         htmlFor="position-substitution-mode"

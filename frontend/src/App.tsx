@@ -17,6 +17,7 @@ import LandingPage from "./home/LandingPage";
 import HomePage from "./home/HomePage";
 
 import { ManageMeetingTypesPage } from "./meeting/pages/ManageMeetingTypesPage";
+import { MeetingsPage } from "./meeting/pages/MeetingsPage";
 
 import {
     OrganizationProvider,
@@ -237,7 +238,7 @@ function App() {
                                             <Route
                                                 path="/meetings"
                                                 element={
-                                                    <PlaceholderPage title="Meetings" />
+                                                    <MeetingsPage />
                                                 }
                                             />
 

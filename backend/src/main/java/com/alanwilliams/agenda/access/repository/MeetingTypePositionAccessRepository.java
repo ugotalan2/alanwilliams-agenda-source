@@ -1,47 +1,27 @@
 package com.alanwilliams.agenda.access.repository;
 
 import com.alanwilliams.agenda.access.model.MeetingTypePositionAccess;
-import org.springframework.data.jpa.repository.JpaRepository;
-
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface MeetingTypePositionAccessRepository
-        extends JpaRepository<MeetingTypePositionAccess, Long> {
+    extends JpaRepository<MeetingTypePositionAccess, Long> {
 
-    Optional<MeetingTypePositionAccess>
-    findByMeetingTypeIdAndOrganizationUnitPositionId(
-            Long meetingTypeId,
-            Long organizationUnitPositionId
-    );
+  Optional<MeetingTypePositionAccess> findByMeetingTypeIdAndOrganizationUnitPositionId(
+      Long meetingTypeId, Long organizationUnitPositionId);
 
-    List<MeetingTypePositionAccess>
-    findByMeetingTypeId(
-            Long meetingTypeId
-    );
+  List<MeetingTypePositionAccess> findByMeetingTypeId(Long meetingTypeId);
 
-    List<MeetingTypePositionAccess>
-    findByOrganizationUnitPositionIdIn(
-            List<Long> organizationUnitPositionIds
-    );
+  List<MeetingTypePositionAccess> findByOrganizationUnitPositionIdIn(
+      List<Long> organizationUnitPositionIds);
 
-    boolean existsByOrganizationUnitPositionId(
-            Long organizationUnitPositionId
-    );
+  boolean existsByOrganizationUnitPositionId(Long organizationUnitPositionId);
 
-    void deleteByMeetingTypeIdAndOrganizationUnitPositionId(
-            Long meetingTypeId,
-            Long organizationUnitPositionId
-    );
+  void deleteByMeetingTypeIdAndOrganizationUnitPositionId(
+      Long meetingTypeId, Long organizationUnitPositionId);
 
-    Optional<MeetingTypePositionAccess>
-    findByMeetingTypeIdAndOwnerTrue(
-            Long meetingTypeId
-    );
+  Optional<MeetingTypePositionAccess> findByMeetingTypeIdAndOwnerTrue(Long meetingTypeId);
 
-    Optional<MeetingTypePositionAccess>
-    findByIdAndMeetingTypeId(
-            Long id,
-            Long meetingTypeId
-    );
+  Optional<MeetingTypePositionAccess> findByIdAndMeetingTypeId(Long id, Long meetingTypeId);
 }

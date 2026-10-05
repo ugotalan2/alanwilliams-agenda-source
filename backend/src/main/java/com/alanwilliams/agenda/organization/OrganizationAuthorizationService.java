@@ -14,68 +14,47 @@ import org.springframework.web.server.ResponseStatusException;
 @RequiredArgsConstructor
 public class OrganizationAuthorizationService {
 
-    private final OrganizationMembershipRepository membershipRepository;
+  private final OrganizationMembershipRepository membershipRepository;
 
-    @Transactional(readOnly = true)
-    public OrganizationMembership requireActiveMembership(
-            Long personId,
-            Long organizationId
-    ) {
-        if (organizationId == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "organizationId is required."
-            );
-        }
-
-        return membershipRepository
-                .findByOrganizationIdAndPersonIdAndStatusAndOrganizationActiveTrue(
-                        organizationId,
-                        personId,
-                        MembershipStatus.ACTIVE
-                )
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.FORBIDDEN,
-                        "You do not have an active membership in that organization."
-                ));
+  @Transactional(readOnly = true)
+  public OrganizationMembership requireActiveMembership(Long personId, Long organizationId) {
+    if (organizationId == null) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "organizationId is required.");
     }
 
-    @Transactional(readOnly = true)
-    public OrganizationMembership requireOrganizationAdmin(
-            Long personId,
-            Long organizationId
-    ) {
-        OrganizationMembership membership =
-                requireActiveMembership(personId, organizationId);
-
-        OrganizationRole role = membership.getOrganizationRole();
-
-        if (role != OrganizationRole.OWNER
-                && role != OrganizationRole.ADMIN) {
-            throw new ResponseStatusException(
+    return membershipRepository
+        .findByOrganizationIdAndPersonIdAndStatusAndOrganizationActiveTrue(
+            organizationId, personId, MembershipStatus.ACTIVE)
+        .orElseThrow(
+            () ->
+                new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
-                    "Organization administrator access is required."
-            );
-        }
+                    "You do not have an active membership in that organization."));
+  }
 
-        return membership;
+  @Transactional(readOnly = true)
+  public OrganizationMembership requireOrganizationAdmin(Long personId, Long organizationId) {
+    OrganizationMembership membership = requireActiveMembership(personId, organizationId);
+
+    OrganizationRole role = membership.getOrganizationRole();
+
+    if (role != OrganizationRole.OWNER && role != OrganizationRole.ADMIN) {
+      throw new ResponseStatusException(
+          HttpStatus.FORBIDDEN, "Organization administrator access is required.");
     }
 
-    @Transactional(readOnly = true)
-    public OrganizationMembership requireOwner(
-            Long personId,
-            Long organizationId
-    ) {
-        OrganizationMembership membership =
-                requireActiveMembership(personId, organizationId);
+    return membership;
+  }
 
-        if (membership.getOrganizationRole() != OrganizationRole.OWNER) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Only the organization owner can perform this action."
-            );
-        }
+  @Transactional(readOnly = true)
+  public OrganizationMembership requireOwner(Long personId, Long organizationId) {
+    OrganizationMembership membership = requireActiveMembership(personId, organizationId);
 
-        return membership;
+    if (membership.getOrganizationRole() != OrganizationRole.OWNER) {
+      throw new ResponseStatusException(
+          HttpStatus.FORBIDDEN, "Only the organization owner can perform this action.");
     }
+
+    return membership;
+  }
 }

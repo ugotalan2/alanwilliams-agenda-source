@@ -12,38 +12,24 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class OrganizationInvitationController {
 
-    private final OrganizationInvitationService
-            invitationService;
+  private final OrganizationInvitationService invitationService;
 
-    private final AuthenticatedPersonService
-            authenticatedPersonService;
+  private final AuthenticatedPersonService authenticatedPersonService;
 
-    @GetMapping("/{token}")
-    public InvitationLookupResponse lookup(
-            @PathVariable String token
-    ) {
-        return invitationService.lookup(token);
-    }
+  @GetMapping("/{token}")
+  public InvitationLookupResponse lookup(@PathVariable String token) {
+    return invitationService.lookup(token);
+  }
 
-    @PostMapping("/{token}/accept")
-    public InvitationLookupResponse accept(
-            @AuthenticationPrincipal ClerkPrincipal principal,
-            @PathVariable String token
-    ) {
-        return invitationService.accept(
-                authenticatedPersonService.requirePersonId(principal),
-                token
-        );
-    }
+  @PostMapping("/{token}/accept")
+  public InvitationLookupResponse accept(
+      @AuthenticationPrincipal ClerkPrincipal principal, @PathVariable String token) {
+    return invitationService.accept(authenticatedPersonService.requirePersonId(principal), token);
+  }
 
-    @PostMapping("/{token}/decline")
-    public InvitationLookupResponse decline(
-            @AuthenticationPrincipal ClerkPrincipal principal,
-            @PathVariable String token
-    ) {
-        return invitationService.decline(
-                authenticatedPersonService.requirePersonId(principal),
-                token
-        );
-    }
+  @PostMapping("/{token}/decline")
+  public InvitationLookupResponse decline(
+      @AuthenticationPrincipal ClerkPrincipal principal, @PathVariable String token) {
+    return invitationService.decline(authenticatedPersonService.requirePersonId(principal), token);
+  }
 }

@@ -7,13 +7,6 @@ import com.alanwilliams.agenda.membership.MembershipStatus;
 import com.alanwilliams.agenda.membership.OrganizationMembership;
 import com.alanwilliams.agenda.membership.OrganizationMembershipRepository;
 import com.alanwilliams.agenda.organization.OrganizationAuthorizationService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
-
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -23,342 +16,225 @@ import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @RequiredArgsConstructor
 public class OrganizationInvitationService {
 
-    private static final int TOKEN_BYTES = 32;
-    private static final int INVITATION_VALID_DAYS = 7;
+  private static final int TOKEN_BYTES = 32;
+  private static final int INVITATION_VALID_DAYS = 7;
 
-    private static final List<MembershipStatus>
-            CURRENT_MEMBERSHIP_STATUSES =
-            List.of(
-                    MembershipStatus.PENDING,
-                    MembershipStatus.ACTIVE
-            );
+  private static final List<MembershipStatus> CURRENT_MEMBERSHIP_STATUSES =
+      List.of(MembershipStatus.PENDING, MembershipStatus.ACTIVE);
 
-    private final OrganizationInvitationRepository
-            invitationRepository;
+  private final OrganizationInvitationRepository invitationRepository;
 
-    private final OrganizationMembershipRepository
-            membershipRepository;
+  private final OrganizationMembershipRepository membershipRepository;
 
-    private final OrganizationAuthorizationService
-            authorizationService;
+  private final OrganizationAuthorizationService authorizationService;
 
-    private final OrganizationInvitationEmailService
-            invitationEmailService;
+  private final OrganizationInvitationEmailService invitationEmailService;
 
-    private final SecureRandom secureRandom =
-            new SecureRandom();
+  private final SecureRandom secureRandom = new SecureRandom();
 
-    @Transactional
-    public InvitationIssueResponse issue(
-            Long personId,
-            Long organizationId,
-            Long membershipId
-    ) {
-        authorizationService.requireOrganizationAdmin(
-                personId,
-                organizationId
-        );
+  @Transactional
+  public InvitationIssueResponse issue(Long personId, Long organizationId, Long membershipId) {
+    authorizationService.requireOrganizationAdmin(personId, organizationId);
 
-        OrganizationMembership membership =
-                requirePendingMembership(
-                        organizationId,
-                        membershipId
-                );
+    OrganizationMembership membership = requirePendingMembership(organizationId, membershipId);
 
-        String invitedEmail =
-                membership.getProvisionalEmail();
+    String invitedEmail = membership.getProvisionalEmail();
 
-        if (invitedEmail == null || invitedEmail.isBlank()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Pending member does not have an invitation email."
-            );
-        }
+    if (invitedEmail == null || invitedEmail.isBlank()) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Pending member does not have an invitation email.");
+    }
 
-        invitationRepository
-                .findByOrganizationMembershipIdAndStatus(
-                        membershipId,
-                        InvitationStatus.PENDING
-                )
-                .ifPresent(existingInvitation -> {
-                    existingInvitation.revoke();
-                    invitationRepository.saveAndFlush(existingInvitation);
-                });
+    invitationRepository
+        .findByOrganizationMembershipIdAndStatus(membershipId, InvitationStatus.PENDING)
+        .ifPresent(
+            existingInvitation -> {
+              existingInvitation.revoke();
+              invitationRepository.saveAndFlush(existingInvitation);
+            });
 
-        String token = generateToken();
+    String token = generateToken();
 
-        OrganizationInvitation invitation =
-                invitationRepository.save(
-                        new OrganizationInvitation(
-                                membership,
-                                invitedEmail,
-                                hashToken(token),
-                                Instant.now().plus(
-                                        INVITATION_VALID_DAYS,
-                                        ChronoUnit.DAYS
-                                ),
-                                personId
-                        )
-                );
-
-        invitationEmailService.sendInvitation(
+    OrganizationInvitation invitation =
+        invitationRepository.save(
+            new OrganizationInvitation(
                 membership,
-                invitation,
-                token
-        );
+                invitedEmail,
+                hashToken(token),
+                Instant.now().plus(INVITATION_VALID_DAYS, ChronoUnit.DAYS),
+                personId));
 
-        return new InvitationIssueResponse(
-                invitation.getId(),
-                membership.getId(),
-                invitation.getInvitedEmail(),
-                token,
-                invitation.getExpiresAt()
-        );
+    invitationEmailService.sendInvitation(membership, invitation, token);
+
+    return new InvitationIssueResponse(
+        invitation.getId(),
+        membership.getId(),
+        invitation.getInvitedEmail(),
+        token,
+        invitation.getExpiresAt());
+  }
+
+  @Transactional
+  public void revoke(Long personId, Long organizationId, Long membershipId) {
+    authorizationService.requireOrganizationAdmin(personId, organizationId);
+
+    requirePendingMembership(organizationId, membershipId);
+
+    OrganizationInvitation invitation =
+        invitationRepository
+            .findByOrganizationMembershipIdAndStatus(membershipId, InvitationStatus.PENDING)
+            .orElseThrow(
+                () ->
+                    new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Pending invitation not found."));
+
+    invitation.revoke();
+    invitationRepository.save(invitation);
+  }
+
+  @Transactional
+  public InvitationLookupResponse lookup(String token) {
+    OrganizationInvitation invitation = requireInvitation(token);
+
+    expireIfNeeded(invitation);
+
+    return toLookupResponse(invitation);
+  }
+
+  @Transactional
+  public InvitationLookupResponse accept(Long personId, String token) {
+    OrganizationInvitation invitation = requireInvitationForUpdate(token);
+
+    expireIfNeeded(invitation);
+    requirePending(invitation);
+
+    OrganizationMembership membership = invitation.getOrganizationMembership();
+
+    Long organizationId = membership.getOrganization().getId();
+
+    if (membership.getStatus() != MembershipStatus.PENDING) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT, "Organization membership is no longer pending.");
     }
 
-    @Transactional
-    public void revoke(
-            Long personId,
-            Long organizationId,
-            Long membershipId
-    ) {
-        authorizationService.requireOrganizationAdmin(
-                personId,
-                organizationId
-        );
-
-        requirePendingMembership(
-                organizationId,
-                membershipId
-        );
-
-        OrganizationInvitation invitation =
-                invitationRepository
-                        .findByOrganizationMembershipIdAndStatus(
-                                membershipId,
-                                InvitationStatus.PENDING
-                        )
-                        .orElseThrow(() ->
-                                new ResponseStatusException(
-                                        HttpStatus.NOT_FOUND,
-                                        "Pending invitation not found."
-                                )
-                        );
-
-        invitation.revoke();
-        invitationRepository.save(invitation);
+    if (membershipRepository.existsByOrganizationIdAndPersonIdAndStatusIn(
+        organizationId, personId, CURRENT_MEMBERSHIP_STATUSES)) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT,
+          "This signed-in account already has a current membership in this organization.");
     }
 
-    @Transactional
-    public InvitationLookupResponse lookup(
-            String token
-    ) {
-        OrganizationInvitation invitation =
-                requireInvitation(token);
+    membership.activate(personId);
+    invitation.accept(personId);
 
-        expireIfNeeded(invitation);
-
-        return toLookupResponse(invitation);
+    try {
+      membershipRepository.saveAndFlush(membership);
+      invitationRepository.save(invitation);
+    } catch (DataIntegrityViolationException exception) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT,
+          "This signed-in account already has a current membership in this organization.");
     }
 
-    @Transactional
-    public InvitationLookupResponse accept(
-            Long personId,
-            String token
-    ) {
-        OrganizationInvitation invitation =
-                requireInvitationForUpdate(token);
+    return toLookupResponse(invitation);
+  }
 
-        expireIfNeeded(invitation);
-        requirePending(invitation);
+  @Transactional
+  public InvitationLookupResponse decline(Long personId, String token) {
+    OrganizationInvitation invitation = requireInvitationForUpdate(token);
 
-        OrganizationMembership membership =
-                invitation.getOrganizationMembership();
+    expireIfNeeded(invitation);
+    requirePending(invitation);
 
-        Long organizationId =
-                membership.getOrganization().getId();
+    invitation.decline();
+    invitationRepository.save(invitation);
 
-        if (membership.getStatus() != MembershipStatus.PENDING) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Organization membership is no longer pending."
-            );
-        }
+    return toLookupResponse(invitation);
+  }
 
-        if (membershipRepository
-                .existsByOrganizationIdAndPersonIdAndStatusIn(
-                        organizationId,
-                        personId,
-                        CURRENT_MEMBERSHIP_STATUSES
-                )) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "This signed-in account already has a current membership in this organization."
-            );
-        }
+  private OrganizationMembership requirePendingMembership(Long organizationId, Long membershipId) {
+    return membershipRepository
+        .findByIdAndOrganizationIdAndStatus(membershipId, organizationId, MembershipStatus.PENDING)
+        .orElseThrow(
+            () ->
+                new ResponseStatusException(
+                    HttpStatus.NOT_FOUND, "Pending organization membership not found."));
+  }
 
-        membership.activate(personId);
-        invitation.accept(personId);
+  private OrganizationInvitation requireInvitation(String token) {
+    return invitationRepository
+        .findByTokenHash(hashToken(requireToken(token)))
+        .orElseThrow(
+            () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Invitation not found."));
+  }
 
-        try {
-            membershipRepository.saveAndFlush(membership);
-            invitationRepository.save(invitation);
-        } catch (DataIntegrityViolationException exception) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "This signed-in account already has a current membership in this organization."
-            );
-        }
+  private OrganizationInvitation requireInvitationForUpdate(String token) {
+    return invitationRepository
+        .findForUpdateByTokenHash(hashToken(requireToken(token)))
+        .orElseThrow(
+            () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Invitation not found."));
+  }
 
-        return toLookupResponse(invitation);
+  private void expireIfNeeded(OrganizationInvitation invitation) {
+    if (invitation.getStatus() == InvitationStatus.PENDING && invitation.isExpired()) {
+      invitation.expire();
+      invitationRepository.save(invitation);
+    }
+  }
+
+  private void requirePending(OrganizationInvitation invitation) {
+    if (invitation.getStatus() != InvitationStatus.PENDING) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "Invitation is no longer pending.");
+    }
+  }
+
+  private InvitationLookupResponse toLookupResponse(OrganizationInvitation invitation) {
+    OrganizationMembership membership = invitation.getOrganizationMembership();
+
+    return new InvitationLookupResponse(
+        invitation.getId(),
+        membership.getId(),
+        membership.getOrganization().getId(),
+        membership.getOrganization().getName(),
+        membership.getDisplayName(),
+        invitation.getInvitedEmail(),
+        invitation.getStatus(),
+        invitation.getExpiresAt());
+  }
+
+  private String generateToken() {
+    byte[] bytes = new byte[TOKEN_BYTES];
+    secureRandom.nextBytes(bytes);
+
+    return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+  }
+
+  private String requireToken(String token) {
+    if (token == null || token.isBlank()) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invitation token is required.");
     }
 
-    @Transactional
-    public InvitationLookupResponse decline(
-            Long personId,
-            String token
-    ) {
-        OrganizationInvitation invitation =
-                requireInvitationForUpdate(token);
+    return token.trim();
+  }
 
-        expireIfNeeded(invitation);
-        requirePending(invitation);
+  private String hashToken(String token) {
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
 
-        invitation.decline();
-        invitationRepository.save(invitation);
-
-        return toLookupResponse(invitation);
+      return HexFormat.of().formatHex(digest.digest(token.getBytes(StandardCharsets.UTF_8)));
+    } catch (NoSuchAlgorithmException exception) {
+      throw new IllegalStateException("SHA-256 is not available.", exception);
     }
-
-    private OrganizationMembership requirePendingMembership(
-            Long organizationId,
-            Long membershipId
-    ) {
-        return membershipRepository
-                .findByIdAndOrganizationIdAndStatus(
-                        membershipId,
-                        organizationId,
-                        MembershipStatus.PENDING
-                )
-                .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "Pending organization membership not found."
-                        )
-                );
-    }
-
-    private OrganizationInvitation requireInvitation(
-            String token
-    ) {
-        return invitationRepository
-                .findByTokenHash(hashToken(requireToken(token)))
-                .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "Invitation not found."
-                        )
-                );
-    }
-
-    private OrganizationInvitation requireInvitationForUpdate(
-            String token
-    ) {
-        return invitationRepository
-                .findForUpdateByTokenHash(
-                        hashToken(requireToken(token))
-                )
-                .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "Invitation not found."
-                        )
-                );
-    }
-
-    private void expireIfNeeded(
-            OrganizationInvitation invitation
-    ) {
-        if (invitation.getStatus() == InvitationStatus.PENDING
-                && invitation.isExpired()) {
-            invitation.expire();
-            invitationRepository.save(invitation);
-        }
-    }
-
-    private void requirePending(
-            OrganizationInvitation invitation
-    ) {
-        if (invitation.getStatus() != InvitationStatus.PENDING) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Invitation is no longer pending."
-            );
-        }
-    }
-
-    private InvitationLookupResponse toLookupResponse(
-            OrganizationInvitation invitation
-    ) {
-        OrganizationMembership membership =
-                invitation.getOrganizationMembership();
-
-        return new InvitationLookupResponse(
-                invitation.getId(),
-                membership.getId(),
-                membership.getOrganization().getId(),
-                membership.getOrganization().getName(),
-                membership.getDisplayName(),
-                invitation.getInvitedEmail(),
-                invitation.getStatus(),
-                invitation.getExpiresAt()
-        );
-    }
-
-    private String generateToken() {
-        byte[] bytes = new byte[TOKEN_BYTES];
-        secureRandom.nextBytes(bytes);
-
-        return Base64.getUrlEncoder()
-                .withoutPadding()
-                .encodeToString(bytes);
-    }
-
-    private String requireToken(
-            String token
-    ) {
-        if (token == null || token.isBlank()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Invitation token is required."
-            );
-        }
-
-        return token.trim();
-    }
-
-    private String hashToken(
-            String token
-    ) {
-        try {
-            MessageDigest digest =
-                    MessageDigest.getInstance("SHA-256");
-
-            return HexFormat.of().formatHex(
-                    digest.digest(
-                            token.getBytes(StandardCharsets.UTF_8)
-                    )
-            );
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException(
-                    "SHA-256 is not available.",
-                    exception
-            );
-        }
-    }
+  }
 }

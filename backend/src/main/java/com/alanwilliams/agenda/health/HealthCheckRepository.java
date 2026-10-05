@@ -4,15 +4,15 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public class HealthCheckRepository{
+public class HealthCheckRepository {
 
-    private final JdbcTemplate jdbcTemplate;
+  private final JdbcTemplate jdbcTemplate;
 
-    public HealthCheckRepository(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
-    }
+  public HealthCheckRepository(JdbcTemplate jdbcTemplate) {
+    this.jdbcTemplate = jdbcTemplate;
+  }
 
-    public Integer pingDatabase() {
-        return jdbcTemplate.queryForObject("SELECT 1", Integer.class);
-    }
+  public Integer pingDatabase() {
+    return jdbcTemplate.queryForObject("SELECT 1", Integer.class);
+  }
 }

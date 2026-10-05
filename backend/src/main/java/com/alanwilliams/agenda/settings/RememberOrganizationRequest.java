@@ -1,6 +1,3 @@
 package com.alanwilliams.agenda.settings;
 
-public record RememberOrganizationRequest(
-        boolean rememberLastOrganization
-) {
-}
+public record RememberOrganizationRequest(boolean rememberLastOrganization) {}

@@ -1,6 +1,3 @@
 package com.alanwilliams.agenda.meeting.dto;
 
-public record SwitchMeetingTypeRequest(
-        Long meetingTypeId
-) {
-}
+public record SwitchMeetingTypeRequest(Long meetingTypeId) {}

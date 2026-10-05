@@ -6,117 +6,94 @@ import com.alanwilliams.agenda.membership.OrganizationMembershipRepository;
 import com.alanwilliams.agenda.membership.OrganizationRole;
 import com.alanwilliams.email.EmailMessage;
 import com.alanwilliams.email.EmailService;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.HtmlUtils;
 
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
-import java.util.Locale;
-
 @Service
 @RequiredArgsConstructor
 public class OrganizationInvitationEmailService {
 
-    private static final String AGENDA_ICON_URL =
-            "https://agenda.alanwilliams.app/favicon.png";
+  private static final String AGENDA_ICON_URL = "https://agenda.alanwilliams.app/favicon.png";
 
-    private static final String PLATFORM_ICON_URL =
-            "https://alanwilliams.app/favicon.png";
+  private static final String PLATFORM_ICON_URL = "https://alanwilliams.app/favicon.png";
 
-    private static final DateTimeFormatter EXPIRATION_DATE_FORMAT =
-            DateTimeFormatter.ofPattern("MMMM d, uuuu", Locale.US)
-                    .withZone(ZoneOffset.UTC);
+  private static final DateTimeFormatter EXPIRATION_DATE_FORMAT =
+      DateTimeFormatter.ofPattern("MMMM d, uuuu", Locale.US).withZone(ZoneOffset.UTC);
 
-    private final EmailService emailService;
-    private final OrganizationMembershipRepository membershipRepository;
+  private final EmailService emailService;
+  private final OrganizationMembershipRepository membershipRepository;
 
-    @Value("${agenda.frontend-url}")
-    private String frontendUrl;
+  @Value("${agenda.frontend-url}")
+  private String frontendUrl;
 
-    @Value("${PLATFORM_FRONTEND_URL:https://alanwilliams.app}")
-    private String platformFrontendUrl;
+  @Value("${PLATFORM_FRONTEND_URL:https://alanwilliams.app}")
+  private String platformFrontendUrl;
 
-    public void sendInvitation(
-            OrganizationMembership membership,
-            OrganizationInvitation invitation,
-            String token
-    ) {
-        String invitationUrl =
-                frontendUrl
-                        + "/invitations/"
-                        + token;
+  public void sendInvitation(
+      OrganizationMembership membership, OrganizationInvitation invitation, String token) {
+    String invitationUrl = frontendUrl + "/invitations/" + token;
 
-        String organizationName =
-                membership.getOrganization().getName();
+    String organizationName = membership.getOrganization().getName();
 
-        String ownerName =
-                membershipRepository
-                        .findByOrganizationIdAndOrganizationRoleAndStatus(
-                                membership.getOrganization().getId(),
-                                OrganizationRole.OWNER,
-                                MembershipStatus.ACTIVE
-                        )
-                        .map(OrganizationMembership::getDisplayName)
-                        .orElse("Your organization owner");
+    String ownerName =
+        membershipRepository
+            .findByOrganizationIdAndOrganizationRoleAndStatus(
+                membership.getOrganization().getId(),
+                OrganizationRole.OWNER,
+                MembershipStatus.ACTIVE)
+            .map(OrganizationMembership::getDisplayName)
+            .orElse("Your organization owner");
 
-        String expirationDate =
-                invitation.getExpiresAt() == null
-                        ? null
-                        : EXPIRATION_DATE_FORMAT.format(
-                                invitation.getExpiresAt()
-                        );
+    String expirationDate =
+        invitation.getExpiresAt() == null
+            ? null
+            : EXPIRATION_DATE_FORMAT.format(invitation.getExpiresAt());
 
-        String subject =
-                "Invitation to join "
-                        + organizationName;
+    String subject = "Invitation to join " + organizationName;
 
-        String html = buildHtml(
-                membership.getDisplayName(),
-                ownerName,
-                organizationName,
-                invitation.getInvitedEmail(),
-                invitationUrl,
-                expirationDate
-        );
+    String html =
+        buildHtml(
+            membership.getDisplayName(),
+            ownerName,
+            organizationName,
+            invitation.getInvitedEmail(),
+            invitationUrl,
+            expirationDate);
 
-        emailService.send(
-                new EmailMessage(
-                        invitation.getInvitedEmail(),
-                        subject,
-                        html
-                )
-        );
-    }
+    emailService.send(new EmailMessage(invitation.getInvitedEmail(), subject, html));
+  }
 
-    private String buildHtml(
-            String displayName,
-            String ownerName,
-            String organizationName,
-            String invitedEmail,
-            String invitationUrl,
-            String expirationDate
-    ) {
-        String safeDisplayName = HtmlUtils.htmlEscape(displayName);
-        String safeOwnerName = HtmlUtils.htmlEscape(ownerName);
-        String safeOrganizationName = HtmlUtils.htmlEscape(organizationName);
-        String safeInvitedEmail = HtmlUtils.htmlEscape(invitedEmail);
-        String safeInvitationUrl = HtmlUtils.htmlEscape(invitationUrl);
-        String safeAgendaIconUrl = HtmlUtils.htmlEscape(AGENDA_ICON_URL);
-        String safePlatformIconUrl = HtmlUtils.htmlEscape(PLATFORM_ICON_URL);
-        String safePlatformUrl = HtmlUtils.htmlEscape(platformFrontendUrl);
+  private String buildHtml(
+      String displayName,
+      String ownerName,
+      String organizationName,
+      String invitedEmail,
+      String invitationUrl,
+      String expirationDate) {
+    String safeDisplayName = HtmlUtils.htmlEscape(displayName);
+    String safeOwnerName = HtmlUtils.htmlEscape(ownerName);
+    String safeOrganizationName = HtmlUtils.htmlEscape(organizationName);
+    String safeInvitedEmail = HtmlUtils.htmlEscape(invitedEmail);
+    String safeInvitationUrl = HtmlUtils.htmlEscape(invitationUrl);
+    String safeAgendaIconUrl = HtmlUtils.htmlEscape(AGENDA_ICON_URL);
+    String safePlatformIconUrl = HtmlUtils.htmlEscape(PLATFORM_ICON_URL);
+    String safePlatformUrl = HtmlUtils.htmlEscape(platformFrontendUrl);
 
-        String expirationHtml =
-                expirationDate == null
-                        ? ""
-                        : "<p style=\"margin:8px 0 0;color:#64748b;font-size:13px;line-height:20px;\">"
-                        + "This invitation will expire <strong>"
-                        + HtmlUtils.htmlEscape(expirationDate)
-                        + "</strong>."
-                        + "</p>";
+    String expirationHtml =
+        expirationDate == null
+            ? ""
+            : "<p style=\"margin:8px 0 0;color:#64748b;font-size:13px;line-height:20px;\">"
+                + "This invitation will expire <strong>"
+                + HtmlUtils.htmlEscape(expirationDate)
+                + "</strong>."
+                + "</p>";
 
-        return """
+    return """
                 <!doctype html>
                 <html>
                 <body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#172033;">
@@ -163,17 +140,17 @@ public class OrganizationInvitationEmailService {
                   </table>
                 </body>
                 </html>
-                """.formatted(
-                safeAgendaIconUrl,
-                safeOrganizationName,
-                safeDisplayName,
-                safeOwnerName,
-                safeOrganizationName,
-                safeInvitationUrl,
-                safeInvitedEmail,
-                expirationHtml,
-                safePlatformIconUrl,
-                safePlatformUrl
-        );
-    }
+                """
+        .formatted(
+            safeAgendaIconUrl,
+            safeOrganizationName,
+            safeDisplayName,
+            safeOwnerName,
+            safeOrganizationName,
+            safeInvitationUrl,
+            safeInvitedEmail,
+            expirationHtml,
+            safePlatformIconUrl,
+            safePlatformUrl);
+  }
 }

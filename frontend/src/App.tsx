@@ -32,6 +32,7 @@ import { ManageOrganizationPage } from "./organization/pages/ManageOrganizationP
 import { AgendaContextBar } from "./organization/components/AgendaContextBar";
 import { EditOrganizationPage } from "./organization/pages/EditOrganizationPage";
 import { ManageMembersPage } from "./membership/pages/ManageMembersPage";
+import { AgendaSettingsPage } from "./settings/pages/AgendaSettingsPage";
 
 import { IdentityBootstrap } from "./account/IdentityBootstrap";
 import InvitationPage from "./invitation/pages/InvitationPage";
@@ -237,9 +238,7 @@ function App() {
 
                                             <Route
                                                 path="/meetings"
-                                                element={
-                                                    <MeetingsPage />
-                                                }
+                                                element={<MeetingsPage />}
                                             />
 
                                             <Route
@@ -263,9 +262,7 @@ function App() {
 
                                             <Route
                                                 path="/settings"
-                                                element={
-                                                    <PlaceholderPage title="Settings" />
-                                                }
+                                                element={<AgendaSettingsPage />}
                                             />
 
                                             {/*<Route*/}

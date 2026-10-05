@@ -8,19 +8,12 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class AuthenticatedPersonService {
 
-    public Long requirePersonId(
-            ClerkPrincipal principal
-    ) {
-        if (
-                principal == null
-                        || principal.platformPersonId() == null
-        ) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Authenticated user is not linked to a Platform Person."
-            );
-        }
-
-        return principal.platformPersonId();
+  public Long requirePersonId(ClerkPrincipal principal) {
+    if (principal == null || principal.platformPersonId() == null) {
+      throw new ResponseStatusException(
+          HttpStatus.FORBIDDEN, "Authenticated user is not linked to a Platform Person.");
     }
+
+    return principal.platformPersonId();
+  }
 }

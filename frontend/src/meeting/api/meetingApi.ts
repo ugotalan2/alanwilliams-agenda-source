@@ -32,6 +32,7 @@ export interface MeetingSchedule {
     monthlyWeek: number | null;
     startTime: string | null;
     durationMinutes: number;
+    prayerRollEnabled: boolean;
 }
 
 export interface MeetingValues {

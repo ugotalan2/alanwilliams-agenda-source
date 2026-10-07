@@ -5,11 +5,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.alanwilliams.agenda.access.*;
+import com.alanwilliams.agenda.assignment.AssignmentService;
 import com.alanwilliams.agenda.meeting.dto.CreateMeetingRequest;
 import com.alanwilliams.agenda.meeting.dto.TransitionMeetingRequest;
 import com.alanwilliams.agenda.meeting.dto.UpdateMeetingScheduleRequest;
 import com.alanwilliams.agenda.organization.Organization;
 import com.alanwilliams.agenda.participation.ParticipationAssignmentService;
+import com.alanwilliams.agenda.prayer.PrayerRollService;
 import java.lang.reflect.Field;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -29,6 +31,8 @@ class MeetingServiceTest {
   @Mock MeetingRepository meetingRepository;
   @Mock MeetingAccessService meetingAccessService;
   @Mock ParticipationAssignmentService participationAssignmentService;
+  @Mock AssignmentService assignmentService;
+  @Mock PrayerRollService prayerRollService;
 
   MeetingService service;
   MeetingType meetingType;
@@ -40,7 +44,9 @@ class MeetingServiceTest {
             meetingTypeRepository,
             meetingRepository,
             meetingAccessService,
-            participationAssignmentService);
+            participationAssignmentService,
+            assignmentService,
+            prayerRollService);
 
     Organization organization = new Organization("SCV Ward", 1L);
     setId(organization, 10L);
@@ -139,6 +145,35 @@ class MeetingServiceTest {
   }
 
   @Test
+  void transitionMeeting_readyDoesNotRequireAssignmentFinalizationReviews() {
+    Meeting meeting = meeting(MeetingStatus.PLANNING);
+    when(meetingTypeRepository.findByIdAndOrganizationIdAndActiveTrue(20L, 10L))
+        .thenReturn(Optional.of(meetingType));
+    when(meetingAccessService.requireMeetingAccess(1L, 10L, 20L)).thenReturn(adminAccess(false));
+    when(meetingRepository.findByIdAndMeetingTypeId(30L, 20L)).thenReturn(Optional.of(meeting));
+    when(meetingRepository.save(meeting)).thenReturn(meeting);
+
+    service.transitionMeeting(1L, 10L, 20L, 30L, new TransitionMeetingRequest(MeetingStatus.READY));
+
+    verify(assignmentService, never()).requireFinalizationReviews(anyLong(), anyLong());
+  }
+
+  @Test
+  void transitionMeeting_finalizeRequiresAssignmentFinalizationReviews() {
+    Meeting meeting = meeting(MeetingStatus.PUBLISHED);
+    when(meetingTypeRepository.findByIdAndOrganizationIdAndActiveTrue(20L, 10L))
+        .thenReturn(Optional.of(meetingType));
+    when(meetingAccessService.requireMeetingAccess(1L, 10L, 20L)).thenReturn(adminAccess(false));
+    when(meetingRepository.findByIdAndMeetingTypeId(30L, 20L)).thenReturn(Optional.of(meeting));
+    when(meetingRepository.save(meeting)).thenReturn(meeting);
+
+    service.transitionMeeting(
+        1L, 10L, 20L, 30L, new TransitionMeetingRequest(MeetingStatus.FINALIZED));
+
+    verify(assignmentService).requireFinalizationReviews(20L, 30L);
+  }
+
+  @Test
   void transitionMeeting_rejectsManualArchive() {
     Meeting meeting = meeting(MeetingStatus.FINALIZED);
 
@@ -223,7 +258,12 @@ class MeetingServiceTest {
   @Test
   void getNextMeetingDate_usesConfiguredWeeklyDefaults() {
     meetingType.updateSchedule(
-        MeetingRecurrenceFrequency.WEEKLY, DayOfWeek.WEDNESDAY, null, LocalTime.of(18, 30), 90);
+        MeetingRecurrenceFrequency.WEEKLY,
+        DayOfWeek.WEDNESDAY,
+        null,
+        LocalTime.of(18, 30),
+        90,
+        false);
     when(meetingTypeRepository.findByIdAndOrganizationIdAndActiveTrue(20L, 10L))
         .thenReturn(Optional.of(meetingType));
     when(meetingAccessService.requireMeetingAccess(1L, 10L, 20L)).thenReturn(adminAccess(false));
@@ -238,7 +278,8 @@ class MeetingServiceTest {
 
   @Test
   void getNextMeetingDate_usesConfiguredMonthlyWeek() {
-    meetingType.updateSchedule(MeetingRecurrenceFrequency.MONTHLY, DayOfWeek.THURSDAY, 2, null, 60);
+    meetingType.updateSchedule(
+        MeetingRecurrenceFrequency.MONTHLY, DayOfWeek.THURSDAY, 2, null, 60, false);
     when(meetingTypeRepository.findByIdAndOrganizationIdAndActiveTrue(20L, 10L))
         .thenReturn(Optional.of(meetingType));
     when(meetingAccessService.requireMeetingAccess(1L, 10L, 20L)).thenReturn(adminAccess(false));
@@ -263,13 +304,19 @@ class MeetingServiceTest {
             10L,
             20L,
             new UpdateMeetingScheduleRequest(
-                MeetingRecurrenceFrequency.MONTHLY, DayOfWeek.TUESDAY, 3, LocalTime.of(19, 0), 45));
+                MeetingRecurrenceFrequency.MONTHLY,
+                DayOfWeek.TUESDAY,
+                3,
+                LocalTime.of(19, 0),
+                45,
+                true));
 
     assertEquals(MeetingRecurrenceFrequency.MONTHLY, response.frequency());
     assertEquals(DayOfWeek.TUESDAY, response.dayOfWeek());
     assertEquals(3, response.monthlyWeek());
     assertEquals(LocalTime.of(19, 0), response.startTime());
     assertEquals(45, response.durationMinutes());
+    assertTrue(response.prayerRollEnabled());
     verify(meetingTypeRepository).save(meetingType);
   }
 

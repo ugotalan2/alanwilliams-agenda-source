@@ -35,6 +35,9 @@ public class Meeting {
   @Column(nullable = false, length = 20)
   private MeetingStatus status;
 
+  @Column(name = "prayer_roll_snapshot", columnDefinition = "TEXT")
+  private String prayerRollSnapshot;
+
   @Column(name = "created_at", nullable = false)
   private Instant createdAt;
 
@@ -61,6 +64,11 @@ public class Meeting {
     this.meetingDate = meetingDate;
     this.startTime = startTime;
     this.durationMinutes = durationMinutes;
+    this.updatedAt = Instant.now();
+  }
+
+  public void snapshotPrayerRoll(String snapshot) {
+    this.prayerRollSnapshot = snapshot;
     this.updatedAt = Instant.now();
   }
 

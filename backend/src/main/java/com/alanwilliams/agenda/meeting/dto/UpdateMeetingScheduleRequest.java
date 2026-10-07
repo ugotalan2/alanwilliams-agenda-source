@@ -9,4 +9,5 @@ public record UpdateMeetingScheduleRequest(
     DayOfWeek dayOfWeek,
     Integer monthlyWeek,
     LocalTime startTime,
-    Integer durationMinutes) {}
+    Integer durationMinutes,
+    Boolean prayerRollEnabled) {}

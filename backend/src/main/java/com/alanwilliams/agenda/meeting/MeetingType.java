@@ -48,6 +48,9 @@ public class MeetingType {
   @Column(name = "default_duration_minutes", nullable = false)
   private Integer defaultDurationMinutes;
 
+  @Column(name = "prayer_roll_enabled", nullable = false)
+  private Boolean prayerRollEnabled;
+
   @Column(name = "updated_at", nullable = false)
   private Instant updatedAt;
 
@@ -62,6 +65,7 @@ public class MeetingType {
     this.monthlyWeek = null;
     this.defaultStartTime = null;
     this.defaultDurationMinutes = 60;
+    this.prayerRollEnabled = false;
     this.createdAt = now;
     this.updatedAt = now;
   }
@@ -80,12 +84,14 @@ public class MeetingType {
       DayOfWeek dayOfWeek,
       Integer monthlyWeek,
       LocalTime startTime,
-      Integer durationMinutes) {
+      Integer durationMinutes,
+      Boolean prayerRollEnabled) {
     this.recurrenceFrequency = frequency;
     this.meetingDayOfWeek = dayOfWeek.getValue();
     this.monthlyWeek = monthlyWeek;
     this.defaultStartTime = startTime;
     this.defaultDurationMinutes = durationMinutes;
+    this.prayerRollEnabled = Boolean.TRUE.equals(prayerRollEnabled);
     this.updatedAt = Instant.now();
   }
 

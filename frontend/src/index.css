@@ -35,6 +35,12 @@ a {
     border-radius: 0.75rem;
 }
 
+/* Keep a card with an open Bootstrap action menu above sibling cards. */
+.aw-card:has(.dropdown-menu.show) {
+    position: relative;
+    z-index: 1090;
+}
+
 /* Brand */
 
 .aw-app-brand {

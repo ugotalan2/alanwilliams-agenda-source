@@ -18,6 +18,8 @@ import HomePage from "./home/HomePage";
 
 import { ManageMeetingTypesPage } from "./meeting/pages/ManageMeetingTypesPage";
 import { MeetingsPage } from "./meeting/pages/MeetingsPage";
+import { MeetingAgendaPage } from "./meeting/pages/MeetingAgendaPage";
+import { AssignmentsPage } from "./assignment/pages/AssignmentsPage";
 
 import {
     OrganizationProvider,
@@ -242,6 +244,11 @@ function App() {
                                             />
 
                                             <Route
+                                                path="/meetings/:meetingId"
+                                                element={<MeetingAgendaPage />}
+                                            />
+
+                                            <Route
                                                 path="/members"
                                                 element={<ManageMembersPage />}
                                             />
@@ -255,9 +262,7 @@ function App() {
 
                                             <Route
                                                 path="/assignments"
-                                                element={
-                                                    <PlaceholderPage title="Assignments" />
-                                                }
+                                                element={<AssignmentsPage />}
                                             />
 
                                             <Route

@@ -3,8 +3,10 @@ package com.alanwilliams.agenda.meeting;
 import com.alanwilliams.agenda.access.EffectiveMeetingAccess;
 import com.alanwilliams.agenda.access.MeetingAccessService;
 import com.alanwilliams.agenda.access.MeetingPermissionRole;
+import com.alanwilliams.agenda.assignment.AssignmentService;
 import com.alanwilliams.agenda.meeting.dto.*;
 import com.alanwilliams.agenda.participation.ParticipationAssignmentService;
+import com.alanwilliams.agenda.prayer.PrayerRollService;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -25,6 +27,8 @@ public class MeetingService {
   private final MeetingRepository meetingRepository;
   private final MeetingAccessService meetingAccessService;
   private final ParticipationAssignmentService participationAssignmentService;
+  private final AssignmentService assignmentService;
+  private final PrayerRollService prayerRollService;
 
   @Transactional(readOnly = true)
   public MeetingCapabilitiesResponse getCapabilities(
@@ -68,7 +72,8 @@ public class MeetingService {
         request.dayOfWeek(),
         request.frequency() == MeetingRecurrenceFrequency.MONTHLY ? request.monthlyWeek() : null,
         request.startTime(),
-        request.durationMinutes());
+        request.durationMinutes(),
+        request.prayerRollEnabled());
     meetingTypeRepository.save(meetingType);
     return toScheduleResponse(meetingType);
   }
@@ -215,6 +220,14 @@ public class MeetingService {
 
     validateTransition(meeting.getStatus(), target, access);
 
+    if (target == MeetingStatus.FINALIZED && meeting.getStatus() == MeetingStatus.PUBLISHED) {
+      assignmentService.requireFinalizationReviews(meetingTypeId, meetingId);
+      assignmentService.finalizeMeetingAssignments(meetingTypeId, meetingId);
+      if (Boolean.TRUE.equals(meeting.getMeetingType().getPrayerRollEnabled())) {
+        meeting.snapshotPrayerRoll(prayerRollService.snapshot(meetingTypeId));
+      }
+    }
+
     meeting.transitionTo(target);
 
     return toResponse(meetingRepository.save(meeting));
@@ -327,7 +340,8 @@ public class MeetingService {
         meetingType.getMeetingDayOfWeekValue(),
         meetingType.getMonthlyWeek(),
         meetingType.getDefaultStartTime(),
-        meetingType.getDefaultDurationMinutes());
+        meetingType.getDefaultDurationMinutes(),
+        meetingType.getPrayerRollEnabled());
   }
 
   private void validateSchedule(UpdateMeetingScheduleRequest request) {

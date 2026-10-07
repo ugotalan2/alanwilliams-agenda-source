@@ -7,6 +7,7 @@ import {
 } from "react";
 import { useAuth } from "@clerk/react";
 import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faGear,
@@ -20,6 +21,12 @@ import { useOrganization } from "../../organization/context/OrganizationContext"
 import { useMeeting } from "../context/MeetingContext";
 import { ParticipationEventsEditor } from "../../participation/components/ParticipationEventsEditor";
 import { MeetingParticipationEditor } from "../../participation/components/MeetingParticipationEditor";
+import {
+    getMeetingAssignments,
+    reviewAssignment,
+    type MeetingAssignment,
+    type ReviewDisposition,
+} from "../../assignment/api/assignmentApi";
 import {
     createMeeting,
     deleteMeeting,
@@ -56,6 +63,7 @@ export function MeetingsPage() {
     const [deleting, setDeleting] = useState<Meeting | null>(null);
     const [schedule, setSchedule] = useState<MeetingSchedule | null>(null);
     const [editingSchedule, setEditingSchedule] = useState(false);
+    const [finalizing, setFinalizing] = useState<Meeting | null>(null);
 
     const organizationId = activeOrganization?.organizationId ?? null;
     const meetingTypeId = activeMeetingType?.meetingTypeId ?? null;
@@ -248,7 +256,6 @@ export function MeetingsPage() {
             nextSchedule,
         );
         setSchedule(saved);
-        setEditingSchedule(false);
     }
 
     if (meetingTypeLoading || loading) {
@@ -322,6 +329,7 @@ export function MeetingsPage() {
                 onEdit={openEdit}
                 onDelete={setDeleting}
                 onStatus={changeStatus}
+                onFinalize={setFinalizing}
             />
             <MeetingSection
                 title="Past"
@@ -332,6 +340,7 @@ export function MeetingsPage() {
                 onEdit={openEdit}
                 onDelete={setDeleting}
                 onStatus={changeStatus}
+                onFinalize={setFinalizing}
             />
 
             {(creating || editing) &&
@@ -441,6 +450,26 @@ export function MeetingsPage() {
                     document.body,
                 )}
 
+            {finalizing &&
+                organizationId !== null &&
+                meetingTypeId !== null &&
+                createPortal(
+                    <div className="aw-theme-agenda">
+                        <FinalizeMeetingModal
+                            meeting={finalizing}
+                            organizationId={organizationId}
+                            meetingTypeId={meetingTypeId}
+                            getToken={getToken}
+                            onClose={() => setFinalizing(null)}
+                            onFinalize={async () => {
+                                await changeStatus(finalizing, "FINALIZED");
+                                setFinalizing(null);
+                            }}
+                        />
+                    </div>,
+                    document.body,
+                )}
+
             {deleting && (
                 <DeleteMeetingModal
                     meeting={deleting}
@@ -476,6 +505,7 @@ function MeetingSection({
     onEdit,
     onDelete,
     onStatus,
+    onFinalize,
 }: {
     title: string;
     meetings: Meeting[];
@@ -485,7 +515,9 @@ function MeetingSection({
     onEdit: (meeting: Meeting) => void;
     onDelete: (meeting: Meeting) => void;
     onStatus: (meeting: Meeting, status: MeetingStatus) => Promise<void>;
+    onFinalize: (meeting: Meeting) => void;
 }) {
+    const navigate = useNavigate();
     return (
         <section className="mb-4">
             <h2 className="h5 fw-bold mb-3">{title}</h2>
@@ -510,6 +542,15 @@ function MeetingSection({
                                     </div>
                                 </div>
                                 <div className="d-flex flex-wrap gap-2">
+                                    <button
+                                        className="btn btn-sm aw-btn-secondary"
+                                        type="button"
+                                        onClick={() =>
+                                            navigate(`/meetings/${meeting.id}`)
+                                        }
+                                    >
+                                        Open Agenda
+                                    </button>
                                     {capabilities?.canEdit &&
                                         meeting.status !== "ARCHIVED" && (
                                             <button
@@ -573,10 +614,7 @@ function MeetingSection({
                                                 className="btn btn-sm aw-btn-app-primary"
                                                 type="button"
                                                 onClick={() =>
-                                                    void onStatus(
-                                                        meeting,
-                                                        "FINALIZED",
-                                                    )
+                                                    onFinalize(meeting)
                                                 }
                                             >
                                                 Finalize Meeting
@@ -596,6 +634,225 @@ function MeetingSection({
                 </div>
             )}
         </section>
+    );
+}
+
+function FinalizeMeetingModal({
+    meeting,
+    organizationId,
+    meetingTypeId,
+    getToken,
+    onClose,
+    onFinalize,
+}: {
+    meeting: Meeting;
+    organizationId: number;
+    meetingTypeId: number;
+    getToken: () => Promise<string | null>;
+    onClose: () => void;
+    onFinalize: () => Promise<void>;
+}) {
+    const [items, setItems] = useState<MeetingAssignment[]>([]);
+    const [index, setIndex] = useState(0);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [snooze, setSnooze] = useState("");
+    const load = useCallback(async () => {
+        try {
+            const rows = await getMeetingAssignments(
+                getToken,
+                organizationId,
+                meetingTypeId,
+                meeting.id,
+            );
+            setItems(rows.filter((x) => x.section === "FOLLOW_UP"));
+        } catch (err) {
+            setError(
+                err instanceof Error
+                    ? err.message
+                    : "Unable to load follow-up items.",
+            );
+        }
+    }, [getToken, organizationId, meetingTypeId, meeting.id]);
+    useEffect(() => {
+        void load();
+    }, [load]);
+    const current = items[index] ?? null;
+    async function record(
+        disposition: ReviewDisposition,
+        snoozedUntil: string | null = null,
+    ) {
+        if (!current) return;
+        setSaving(true);
+        setError(null);
+        try {
+            await reviewAssignment(
+                getToken,
+                organizationId,
+                meetingTypeId,
+                meeting.id,
+                current.assignment.id,
+                disposition,
+                snoozedUntil,
+            );
+            await load();
+        } catch (err) {
+            setError(
+                err instanceof Error
+                    ? err.message
+                    : "Unable to save follow-up outcome.",
+            );
+        } finally {
+            setSaving(false);
+        }
+    }
+    const allRecorded = items.every((x) => x.reviewDisposition !== null);
+    return (
+        <ModalShell onClose={onClose} busy={saving}>
+            <div className="modal-header">
+                <div>
+                    <h2 className="modal-title fs-5">Finalize Meeting</h2>
+                    <div className="small aw-text-muted">
+                        Follow-up{" "}
+                        {items.length
+                            ? `${Math.min(index + 1, items.length)} of ${items.length}`
+                            : "complete"}
+                    </div>
+                </div>
+                <button
+                    className="btn-close"
+                    onClick={onClose}
+                    disabled={saving}
+                />
+            </div>
+            <div className="modal-body">
+                {error && <div className="alert alert-danger">{error}</div>}
+                {!current ? (
+                    <div className="text-center py-4">
+                        <div className="fw-semibold mb-1">
+                            Follow-up reviewed
+                        </div>
+                        <div className="aw-text-muted">
+                            No due or past-due assignments need review.
+                        </div>
+                    </div>
+                ) : (
+                    <>
+                        <div
+                            className="fw-semibold"
+                            style={{ whiteSpace: "pre-wrap" }}
+                        >
+                            {current.assignment.description}
+                        </div>
+                        <div className="small aw-text-muted mb-3">
+                            {current.assignment.assignedToName} · Due{" "}
+                            {current.assignment.dueDate}
+                        </div>
+                        {current.assignment.completionNote && (
+                            <div className="small mb-3">
+                                <strong>Completion note:</strong>
+                                <div style={{ whiteSpace: "pre-wrap" }}>
+                                    {current.assignment.completionNote}
+                                </div>
+                            </div>
+                        )}
+                        {current.reviewDisposition ? (
+                            <div className="alert alert-secondary py-2">
+                                <strong>Recorded outcome:</strong>{" "}
+                                {current.reviewDisposition.replace("_", " ")}
+                                {current.reviewSnoozedUntil
+                                    ? ` until ${current.reviewSnoozedUntil}`
+                                    : ""}
+                                {current.reviewedByName
+                                    ? ` · ${current.reviewedByName}`
+                                    : ""}
+                            </div>
+                        ) : (
+                            <div className="alert alert-warning py-2">
+                                No meeting outcome has been recorded yet.
+                            </div>
+                        )}
+                        {
+                            <div className="border-top pt-3">
+                                <div className="small fw-semibold mb-2">
+                                    Record / edit outcome
+                                </div>
+                                <div className="d-flex flex-wrap gap-2">
+                                    <button
+                                        className="btn btn-sm aw-btn-secondary"
+                                        onClick={() =>
+                                            void record("NEXT_MEETING")
+                                        }
+                                    >
+                                        Next Meeting
+                                    </button>
+                                    <button
+                                        className="btn btn-sm aw-btn-app-primary"
+                                        onClick={() => void record("COMPLETED")}
+                                    >
+                                        Complete
+                                    </button>
+                                    <button
+                                        className="btn btn-sm btn-outline-danger"
+                                        onClick={() => void record("CANCELLED")}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                                <div className="d-flex gap-2 mt-2">
+                                    <input
+                                        className="form-control form-control-sm"
+                                        type="date"
+                                        value={snooze}
+                                        onChange={(e) =>
+                                            setSnooze(e.target.value)
+                                        }
+                                    />
+                                    <button
+                                        className="btn btn-sm aw-btn-secondary"
+                                        disabled={!snooze}
+                                        onClick={() =>
+                                            void record("SNOOZED", snooze)
+                                        }
+                                    >
+                                        Snooze
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </>
+                )}
+            </div>
+            <div className="modal-footer justify-content-between">
+                <button
+                    className="btn aw-btn-secondary"
+                    disabled={index === 0}
+                    onClick={() => setIndex((x) => Math.max(0, x - 1))}
+                >
+                    Back
+                </button>
+                <div className="d-flex gap-2">
+                    {current && index < items.length - 1 && (
+                        <button
+                            className="btn aw-btn-app-primary"
+                            disabled={!current.reviewDisposition}
+                            onClick={() => setIndex((x) => x + 1)}
+                        >
+                            Next
+                        </button>
+                    )}
+                    {(!current || index === items.length - 1) && (
+                        <button
+                            className="btn aw-btn-app-primary"
+                            disabled={!allRecorded || saving}
+                            onClick={() => void onFinalize()}
+                        >
+                            Finalize Meeting
+                        </button>
+                    )}
+                </div>
+            </div>
+        </ModalShell>
     );
 }
 
@@ -685,177 +942,190 @@ function MeetingScheduleModal({
     onClose: () => void;
     onSave: (schedule: MeetingSchedule) => Promise<void>;
 }) {
-    const [value, setValue] = useState(schedule);
-    const [saving, setSaving] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [value, setValue] = useState(schedule),
+        [saving, setSaving] = useState(false),
+        [error, setError] = useState<string | null>(null);
+    async function change(next: MeetingSchedule) {
+        const previous = value;
+        setValue(next);
+        setSaving(true);
+        setError(null);
+        try {
+            await onSave(next);
+        } catch (err) {
+            setValue(previous);
+            setError(
+                err instanceof Error
+                    ? err.message
+                    : "Unable to save meeting settings.",
+            );
+        } finally {
+            setSaving(false);
+        }
+    }
     return (
         <ModalShell onClose={onClose} busy={saving}>
-            <form
-                onSubmit={async (event) => {
-                    event.preventDefault();
-                    setSaving(true);
-                    setError(null);
-                    try {
-                        await onSave(value);
-                    } catch (err) {
-                        setError(
-                            err instanceof Error
-                                ? err.message
-                                : "Unable to save meeting settings.",
-                        );
-                        setSaving(false);
-                    }
-                }}
-            >
-                <div className="modal-header">
+            <div className="modal-header">
+                <div>
                     <h2 className="modal-title fs-5">Meeting Settings</h2>
-                    <button
-                        type="button"
-                        className="btn-close"
-                        onClick={onClose}
-                        disabled={saving}
+                    {saving && (
+                        <div className="small aw-text-muted">Saving...</div>
+                    )}
+                </div>
+                <button
+                    type="button"
+                    className="btn-close"
+                    onClick={onClose}
+                    disabled={saving}
+                />
+            </div>
+            <div className="modal-body">
+                {error && <div className="alert alert-danger">{error}</div>}
+                <div className="mb-3">
+                    <label className="form-label" htmlFor="meeting-frequency">
+                        Frequency
+                    </label>
+                    <select
+                        id="meeting-frequency"
+                        className="form-select"
+                        value={value.frequency}
+                        onChange={(e) =>
+                            void change({
+                                ...value,
+                                frequency: e.target
+                                    .value as MeetingSchedule["frequency"],
+                                monthlyWeek:
+                                    e.target.value === "MONTHLY"
+                                        ? (value.monthlyWeek ?? 1)
+                                        : null,
+                            })
+                        }
+                    >
+                        <option value="WEEKLY">Weekly</option>
+                        <option value="MONTHLY">Monthly</option>
+                    </select>
+                </div>
+                {value.frequency === "MONTHLY" && (
+                    <div className="mb-3">
+                        <label className="form-label" htmlFor="meeting-week">
+                            Week of month
+                        </label>
+                        <select
+                            id="meeting-week"
+                            className="form-select"
+                            value={value.monthlyWeek ?? 1}
+                            onChange={(e) =>
+                                void change({
+                                    ...value,
+                                    monthlyWeek: Number(e.target.value),
+                                })
+                            }
+                        >
+                            <option value={1}>1st</option>
+                            <option value={2}>2nd</option>
+                            <option value={3}>3rd</option>
+                            <option value={4}>4th</option>
+                        </select>
+                    </div>
+                )}
+                <div className="mb-3">
+                    <label className="form-label" htmlFor="meeting-day">
+                        Day
+                    </label>
+                    <select
+                        id="meeting-day"
+                        className="form-select"
+                        value={value.dayOfWeek}
+                        onChange={(e) =>
+                            void change({
+                                ...value,
+                                dayOfWeek: e.target
+                                    .value as MeetingSchedule["dayOfWeek"],
+                            })
+                        }
+                    >
+                        {dayOptions.map((day) => (
+                            <option key={day} value={day}>
+                                {day.charAt(0) + day.slice(1).toLowerCase()}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+                <div className="mb-3">
+                    <label className="form-label" htmlFor="default-time">
+                        Start time
+                    </label>
+                    <input
+                        id="default-time"
+                        className="form-control"
+                        type="time"
+                        value={value.startTime?.slice(0, 5) ?? ""}
+                        onChange={(e) =>
+                            void change({
+                                ...value,
+                                startTime: e.target.value || null,
+                            })
+                        }
                     />
                 </div>
-                <div className="modal-body">
-                    {error && <div className="alert alert-danger">{error}</div>}
-                    <div className="mb-3">
-                        <label
-                            className="form-label"
-                            htmlFor="meeting-frequency"
-                        >
-                            Frequency
-                        </label>
-                        <select
-                            id="meeting-frequency"
-                            className="form-select"
-                            value={value.frequency}
-                            onChange={(e) =>
-                                setValue({
-                                    ...value,
-                                    frequency: e.target
-                                        .value as MeetingSchedule["frequency"],
-                                    monthlyWeek:
-                                        e.target.value === "MONTHLY"
-                                            ? (value.monthlyWeek ?? 1)
-                                            : null,
-                                })
-                            }
-                        >
-                            <option value="WEEKLY">Weekly</option>
-                            <option value="MONTHLY">Monthly</option>
-                        </select>
-                    </div>
-                    {value.frequency === "MONTHLY" && (
-                        <div className="mb-3">
-                            <label
-                                className="form-label"
-                                htmlFor="meeting-week"
-                            >
-                                Week of month
-                            </label>
-                            <select
-                                id="meeting-week"
-                                className="form-select"
-                                value={value.monthlyWeek ?? 1}
-                                onChange={(e) =>
-                                    setValue({
-                                        ...value,
-                                        monthlyWeek: Number(e.target.value),
-                                    })
-                                }
-                            >
-                                <option value={1}>1st</option>
-                                <option value={2}>2nd</option>
-                                <option value={3}>3rd</option>
-                                <option value={4}>4th</option>
-                            </select>
-                        </div>
-                    )}
-                    <div className="mb-3">
-                        <label className="form-label" htmlFor="meeting-day">
-                            Day
-                        </label>
-                        <select
-                            id="meeting-day"
-                            className="form-select"
-                            value={value.dayOfWeek}
-                            onChange={(e) =>
-                                setValue({
-                                    ...value,
-                                    dayOfWeek: e.target
-                                        .value as MeetingSchedule["dayOfWeek"],
-                                })
-                            }
-                        >
-                            {dayOptions.map((day) => (
-                                <option key={day} value={day}>
-                                    {day.charAt(0) + day.slice(1).toLowerCase()}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="mb-3">
-                        <label className="form-label" htmlFor="default-time">
-                            Start time
-                        </label>
-                        <input
-                            id="default-time"
-                            className="form-control"
-                            type="time"
-                            value={value.startTime?.slice(0, 5) ?? ""}
-                            onChange={(e) =>
-                                setValue({
-                                    ...value,
-                                    startTime: e.target.value || null,
-                                })
-                            }
-                        />
-                    </div>
-                    <div>
-                        <label
-                            className="form-label"
-                            htmlFor="default-duration"
-                        >
-                            Duration
-                        </label>
-                        <select
-                            id="default-duration"
-                            className="form-select"
-                            value={value.durationMinutes}
-                            onChange={(e) =>
-                                setValue({
-                                    ...value,
-                                    durationMinutes: Number(e.target.value),
-                                })
-                            }
-                        >
-                            {durationOptions.map((minutes) => (
-                                <option key={minutes} value={minutes}>
-                                    {minutes} minutes
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <ParticipationEventsEditor meetingTypeId={meetingTypeId} />
-                </div>
-                <div className="modal-footer">
-                    <button
-                        type="button"
-                        className="btn aw-btn-secondary"
-                        onClick={onClose}
-                        disabled={saving}
+                <div>
+                    <label className="form-label" htmlFor="default-duration">
+                        Duration
+                    </label>
+                    <select
+                        id="default-duration"
+                        className="form-select"
+                        value={value.durationMinutes}
+                        onChange={(e) =>
+                            void change({
+                                ...value,
+                                durationMinutes: Number(e.target.value),
+                            })
+                        }
                     >
-                        Cancel
-                    </button>
-                    <button
-                        type="submit"
-                        className="btn aw-btn-app-primary"
-                        disabled={saving}
-                    >
-                        {saving ? "Saving..." : "Save Settings"}
-                    </button>
+                        {durationOptions.map((minutes) => (
+                            <option key={minutes} value={minutes}>
+                                {minutes} minutes
+                            </option>
+                        ))}
+                    </select>
                 </div>
-            </form>
+                <div className="form-check form-switch mt-4 mb-3">
+                    <input
+                        id="prayer-roll-enabled"
+                        className="form-check-input"
+                        type="checkbox"
+                        checked={value.prayerRollEnabled}
+                        onChange={(e) =>
+                            void change({
+                                ...value,
+                                prayerRollEnabled: e.target.checked,
+                            })
+                        }
+                    />
+                    <label
+                        className="form-check-label fw-semibold"
+                        htmlFor="prayer-roll-enabled"
+                    >
+                        Prayer Roll
+                    </label>
+                    <div className="small aw-text-muted">
+                        Show the living Prayer Roll on active agendas and
+                        snapshot it when the meeting is finalized.
+                    </div>
+                </div>
+                <ParticipationEventsEditor meetingTypeId={meetingTypeId} />
+            </div>
+            <div className="modal-footer">
+                <button
+                    type="button"
+                    className="btn aw-btn-secondary"
+                    onClick={onClose}
+                    disabled={saving}
+                >
+                    Close
+                </button>
+            </div>
         </ModalShell>
     );
 }
